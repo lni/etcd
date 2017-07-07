@@ -82,6 +82,16 @@ func (rn *RawNode) HasPendingSnapshot() bool {
 	return rn.raft.raftLog.unstable.snapshot != nil
 }
 
+// Term returns term of idx at raft log
+func (rn *RawNode) Term(idx uint64) (uint64, error) {
+	return rn.raft.raftLog.term(idx)
+}
+
+// LastIndex returns last index at raft log
+func (rn *RawNode) LastIndex() uint64 {
+	return rn.raft.raftLog.lastIndex()
+}
+
 func (l *raftLog) hasNextEntsSince(sinceIdx uint64) bool {
 	offet := max(sinceIdx+1, l.firstIndex())
 	return l.committed+1 > offet
