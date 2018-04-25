@@ -42,12 +42,17 @@ func TestLessorGrant(t *testing.T) {
 	defer be.Close()
 
 	le := newLessor(be, minLeaseTTL)
+	defer le.Stop()
 	le.Promote(0)
 
 	l, err := le.Grant(1, 1)
 	if err != nil {
 		t.Fatalf("could not grant lease 1 (%v)", err)
 	}
+	if l.ttl != minLeaseTTL {
+		t.Fatalf("ttl = %v, expect minLeaseTTL %v", l.ttl, minLeaseTTL)
+	}
+
 	gl := le.Lookup(l.ID)
 
 	if !reflect.DeepEqual(gl, l) {
@@ -71,6 +76,17 @@ func TestLessorGrant(t *testing.T) {
 		t.Errorf("new lease.id = %x, want != %x", nl.ID, l.ID)
 	}
 
+	lss := []*Lease{gl, nl}
+	leases := le.Leases()
+	for i := range lss {
+		if lss[i].ID != leases[i].ID {
+			t.Fatalf("lease ID expected %d, got %d", lss[i].ID, leases[i].ID)
+		}
+		if lss[i].ttl != leases[i].ttl {
+			t.Fatalf("ttl expected %d, got %d", lss[i].ttl, leases[i].ttl)
+		}
+	}
+
 	be.BatchTx().Lock()
 	_, vs := be.BatchTx().UnsafeRange(leaseBucketName, int64ToBytes(int64(l.ID)), nil, 0)
 	if len(vs) != 1 {
@@ -87,6 +103,7 @@ func TestLeaseConcurrentKeys(t *testing.T) {
 	defer be.Close()
 
 	le := newLessor(be, minLeaseTTL)
+	defer le.Stop()
 	le.SetRangeDeleter(func() TxnDelete { return newFakeDeleter(be) })
 
 	// grant a lease with long term (100 seconds) to
@@ -134,6 +151,7 @@ func TestLessorRevoke(t *testing.T) {
 	defer be.Close()
 
 	le := newLessor(be, minLeaseTTL)
+	defer le.Stop()
 	var fd *fakeDeleter
 	le.SetRangeDeleter(func() TxnDelete {
 		fd = newFakeDeleter(be)
@@ -165,7 +183,7 @@ func TestLessorRevoke(t *testing.T) {
 	}
 
 	wdeleted := []string{"bar_", "foo_"}
-	sort.Sort(sort.StringSlice(fd.deleted))
+	sort.Strings(fd.deleted)
 	if !reflect.DeepEqual(fd.deleted, wdeleted) {
 		t.Errorf("deleted= %v, want %v", fd.deleted, wdeleted)
 	}
@@ -185,6 +203,7 @@ func TestLessorRenew(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	le := newLessor(be, minLeaseTTL)
+	defer le.Stop()
 	le.Promote(0)
 
 	l, err := le.Grant(1, minLeaseTTL)
@@ -240,6 +259,7 @@ func TestLessorRenewExtendPileup(t *testing.T) {
 	be = backend.New(bcfg)
 	defer be.Close()
 	le = newLessor(be, minLeaseTTL)
+	defer le.Stop()
 
 	// extend after recovery should extend expiration on lease pile-up
 	le.Promote(0)
@@ -268,6 +288,7 @@ func TestLessorDetach(t *testing.T) {
 	defer be.Close()
 
 	le := newLessor(be, minLeaseTTL)
+	defer le.Stop()
 	le.SetRangeDeleter(func() TxnDelete { return newFakeDeleter(be) })
 
 	// grant a lease with long term (100 seconds) to
@@ -307,6 +328,7 @@ func TestLessorRecover(t *testing.T) {
 	defer be.Close()
 
 	le := newLessor(be, minLeaseTTL)
+	defer le.Stop()
 	l1, err1 := le.Grant(1, 10)
 	l2, err2 := le.Grant(2, 20)
 	if err1 != nil || err2 != nil {
@@ -315,6 +337,7 @@ func TestLessorRecover(t *testing.T) {
 
 	// Create a new lessor with the same backend
 	nle := newLessor(be, minLeaseTTL)
+	defer nle.Stop()
 	nl1 := nle.Lookup(l1.ID)
 	if nl1 == nil || nl1.ttl != l1.ttl {
 		t.Errorf("nl1 = %v, want nl1.ttl= %d", nl1.ttl, l1.ttl)
@@ -425,6 +448,20 @@ func TestLessorExpireAndDemote(t *testing.T) {
 	case <-donec:
 	case <-time.After(10 * time.Second):
 		t.Fatalf("renew has not returned after lessor demotion")
+	}
+}
+
+func TestLessorMaxTTL(t *testing.T) {
+	dir, be := NewTestBackend(t)
+	defer os.RemoveAll(dir)
+	defer be.Close()
+
+	le := newLessor(be, minLeaseTTL)
+	defer le.Stop()
+
+	_, err := le.Grant(1, MaxLeaseTTL+1)
+	if err != ErrLeaseTTLTooLarge {
+		t.Fatalf("grant unexpectedly succeeded")
 	}
 }
 
