@@ -17,3 +17,4 @@
 hack/tls-setup/certs
 .idea
 *.bak
+vendor
