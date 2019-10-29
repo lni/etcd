@@ -109,11 +109,12 @@ func (*discardValue) Type() string     { return "" }
 
 func clientConfigFromCmd(cmd *cobra.Command) *clientConfig {
 	fs := cmd.InheritedFlags()
-
-	// silence "pkg/flags: unrecognized environment variable ETCDCTL_WATCH_KEY=foo" warnings
-	// silence "pkg/flags: unrecognized environment variable ETCDCTL_WATCH_RANGE_END=bar" warnings
-	fs.AddFlag(&pflag.Flag{Name: "watch-key", Value: &discardValue{}})
-	fs.AddFlag(&pflag.Flag{Name: "watch-range-end", Value: &discardValue{}})
+	if strings.HasPrefix(cmd.Use, "watch") {
+		// silence "pkg/flags: unrecognized environment variable ETCDCTL_WATCH_KEY=foo" warnings
+		// silence "pkg/flags: unrecognized environment variable ETCDCTL_WATCH_RANGE_END=bar" warnings
+		fs.AddFlag(&pflag.Flag{Name: "watch-key", Value: &discardValue{}})
+		fs.AddFlag(&pflag.Flag{Name: "watch-range-end", Value: &discardValue{}})
+	}
 	flags.SetPflagsFromEnv("ETCDCTL", fs)
 
 	debug, err := cmd.Flags().GetBool("debug")
@@ -401,7 +402,7 @@ func endpointsFromFlagValue(cmd *cobra.Command) ([]string, error) {
 	// strip insecure connections
 	ret := []string{}
 	for _, ep := range eps {
-		if strings.HasPrefix("http://", ep) {
+		if strings.HasPrefix(ep, "http://") {
 			fmt.Fprintf(os.Stderr, "ignoring discovered insecure endpoint %q\n", ep)
 			continue
 		}
