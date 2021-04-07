@@ -16,7 +16,8 @@ package tester
 
 import "github.com/coreos/etcd/functional/rpcpb"
 
-type noCheck struct{}
+	"go.etcd.io/etcd/tools/benchmark/cmd"
+)
 
 func newNoChecker() Checker                       { return &noCheck{} }
 func (nc *noCheck) Type() rpcpb.Checker           { return rpcpb.Checker_NO_CHECK }

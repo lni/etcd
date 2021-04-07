@@ -81,6 +81,13 @@ type Config struct {
 	// other operations that do not have an explicit context.
 	Context context.Context
 
+	// LogConfig configures client-side logger.
+	// If nil, use the default logger.
+	// TODO: configure gRPC logger
+	LogConfig *zap.Config
+
 	// PermitWithoutStream when set will allow client to send keepalive pings to server without any active streams(RPCs).
 	PermitWithoutStream bool `json:"permit-without-stream"`
+
+	// TODO: support custom balancer picker
 }

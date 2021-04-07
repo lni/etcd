@@ -22,11 +22,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
-	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
-	"github.com/coreos/etcd/integration"
-	"github.com/coreos/etcd/pkg/testutil"
+	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
+	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
+	"go.etcd.io/etcd/integration"
+	"go.etcd.io/etcd/pkg/testutil"
 	"google.golang.org/grpc"
 )
 
@@ -309,7 +309,7 @@ func TestDropReadUnderNetworkPartition(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	_, err = kvc.Get(ctx, "a")
 	cancel()
-	if err.Error() != rpctypes.ErrLeaderChanged.Error() {
+	if err != rpctypes.ErrLeaderChanged {
 		t.Fatalf("expected %v, got %v", rpctypes.ErrLeaderChanged, err)
 	}
 

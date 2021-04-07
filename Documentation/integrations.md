@@ -1,6 +1,5 @@
 ---
 title: Libraries and tools
-weight: 2
 ---
 
 **Tools**

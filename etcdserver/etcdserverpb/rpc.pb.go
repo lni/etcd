@@ -8,13 +8,15 @@ import (
 	fmt "fmt"
 	io "io"
 	math "math"
-	math_bits "math/bits"
 
-	authpb "github.com/coreos/etcd/auth/authpb"
-	mvccpb "github.com/coreos/etcd/mvcc/mvccpb"
 	_ "github.com/gogo/protobuf/gogoproto"
-	proto "github.com/golang/protobuf/proto"
-	_ "google.golang.org/genproto/googleapis/api/annotations"
+
+	mvccpb "go.etcd.io/etcd/mvcc/mvccpb"
+
+	authpb "go.etcd.io/etcd/auth/authpb"
+
+	context "golang.org/x/net/context"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -116,9 +118,8 @@ var RangeRequest_SortTarget_value = map[string]int32{
 func (x RangeRequest_SortTarget) String() string {
 	return proto.EnumName(RangeRequest_SortTarget_name, int32(x))
 }
-
 func (RangeRequest_SortTarget) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{1, 1}
+	return fileDescriptorRpc, []int{1, 1}
 }
 
 type Compare_CompareResult int32
@@ -238,7 +239,7 @@ func (x AlarmRequest_AlarmAction) String() string {
 }
 
 func (AlarmRequest_AlarmAction) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{49, 0}
+	return fileDescriptorRpc, []int{54, 0}
 }
 
 type ResponseHeader struct {
@@ -357,7 +358,7 @@ type RangeRequest struct {
 	// greater mod revisions will be filtered away.
 	MaxModRevision int64 `protobuf:"varint,11,opt,name=max_mod_revision,json=maxModRevision,proto3" json:"max_mod_revision,omitempty"`
 	// min_create_revision is the lower bound for returned key create revisions; all keys with
-	// lesser create trevisions will be filtered away.
+	// lesser create revisions will be filtered away.
 	MinCreateRevision int64 `protobuf:"varint,12,opt,name=min_create_revision,json=minCreateRevision,proto3" json:"min_create_revision,omitempty"`
 	// max_create_revision is the upper bound for returned key create revisions; all keys with
 	// greater create revisions will be filtered away.
@@ -2131,41 +2132,7 @@ type WatchRequest struct {
 	//	*WatchRequest_CreateRequest
 	//	*WatchRequest_CancelRequest
 	//	*WatchRequest_ProgressRequest
-	RequestUnion         isWatchRequest_RequestUnion `protobuf_oneof:"request_union"`
-	XXX_NoUnkeyedLiteral struct{}                    `json:"-"`
-	XXX_unrecognized     []byte                      `json:"-"`
-	XXX_sizecache        int32                       `json:"-"`
-}
-
-func (m *WatchRequest) Reset()         { *m = WatchRequest{} }
-func (m *WatchRequest) String() string { return proto.CompactTextString(m) }
-func (*WatchRequest) ProtoMessage()    {}
-func (*WatchRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{20}
-}
-func (m *WatchRequest) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *WatchRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_WatchRequest.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *WatchRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_WatchRequest.Merge(m, src)
-}
-func (m *WatchRequest) XXX_Size() int {
-	return m.Size()
-}
-func (m *WatchRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_WatchRequest.DiscardUnknown(m)
+	RequestUnion isWatchRequest_RequestUnion `protobuf_oneof:"request_union"`
 }
 
 var xxx_messageInfo_WatchRequest proto.InternalMessageInfo
@@ -2184,6 +2151,9 @@ type WatchRequest_CancelRequest struct {
 }
 type WatchRequest_ProgressRequest struct {
 	ProgressRequest *WatchProgressRequest `protobuf:"bytes,3,opt,name=progress_request,json=progressRequest,proto3,oneof"`
+}
+type WatchRequest_ProgressRequest struct {
+	ProgressRequest *WatchProgressRequest `protobuf:"bytes,3,opt,name=progress_request,json=progressRequest,oneof"`
 }
 
 func (*WatchRequest_CreateRequest) isWatchRequest_RequestUnion()   {}
@@ -2304,6 +2274,11 @@ func _WatchRequest_OneofSizer(msg proto.Message) (n int) {
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
+	case *WatchRequest_ProgressRequest:
+		s := proto.Size(x.ProgressRequest)
+		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
 	case nil:
 	default:
 		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
@@ -2339,41 +2314,7 @@ type WatchCreateRequest struct {
 	// use on the stream will cause an error to be returned.
 	WatchId int64 `protobuf:"varint,7,opt,name=watch_id,json=watchId,proto3" json:"watch_id,omitempty"`
 	// fragment enables splitting large revisions into multiple watch responses.
-	Fragment             bool     `protobuf:"varint,8,opt,name=fragment,proto3" json:"fragment,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *WatchCreateRequest) Reset()         { *m = WatchCreateRequest{} }
-func (m *WatchCreateRequest) String() string { return proto.CompactTextString(m) }
-func (*WatchCreateRequest) ProtoMessage()    {}
-func (*WatchCreateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{21}
-}
-func (m *WatchCreateRequest) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *WatchCreateRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_WatchCreateRequest.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *WatchCreateRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_WatchCreateRequest.Merge(m, src)
-}
-func (m *WatchCreateRequest) XXX_Size() int {
-	return m.Size()
-}
-func (m *WatchCreateRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_WatchCreateRequest.DiscardUnknown(m)
+	Fragment bool `protobuf:"varint,8,opt,name=fragment,proto3" json:"fragment,omitempty"`
 }
 
 var xxx_messageInfo_WatchCreateRequest proto.InternalMessageInfo
@@ -2485,43 +2426,12 @@ func (m *WatchCancelRequest) GetWatchId() int64 {
 // Requests the a watch stream progress status be sent in the watch response stream as soon as
 // possible.
 type WatchProgressRequest struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *WatchProgressRequest) Reset()         { *m = WatchProgressRequest{} }
-func (m *WatchProgressRequest) String() string { return proto.CompactTextString(m) }
-func (*WatchProgressRequest) ProtoMessage()    {}
-func (*WatchProgressRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{23}
-}
-func (m *WatchProgressRequest) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *WatchProgressRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_WatchProgressRequest.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *WatchProgressRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_WatchProgressRequest.Merge(m, src)
-}
-func (m *WatchProgressRequest) XXX_Size() int {
-	return m.Size()
-}
-func (m *WatchProgressRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_WatchProgressRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_WatchProgressRequest proto.InternalMessageInfo
+func (m *WatchProgressRequest) Reset()                    { *m = WatchProgressRequest{} }
+func (m *WatchProgressRequest) String() string            { return proto.CompactTextString(m) }
+func (*WatchProgressRequest) ProtoMessage()               {}
+func (*WatchProgressRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{23} }
 
 type WatchResponse struct {
 	Header *ResponseHeader `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
@@ -2547,45 +2457,14 @@ type WatchResponse struct {
 	// cancel_reason indicates the reason for canceling the watcher.
 	CancelReason string `protobuf:"bytes,6,opt,name=cancel_reason,json=cancelReason,proto3" json:"cancel_reason,omitempty"`
 	// framgment is true if large watch response was split over multiple responses.
-	Fragment             bool            `protobuf:"varint,7,opt,name=fragment,proto3" json:"fragment,omitempty"`
-	Events               []*mvccpb.Event `protobuf:"bytes,11,rep,name=events,proto3" json:"events,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
-	XXX_unrecognized     []byte          `json:"-"`
-	XXX_sizecache        int32           `json:"-"`
+	Fragment bool            `protobuf:"varint,7,opt,name=fragment,proto3" json:"fragment,omitempty"`
+	Events   []*mvccpb.Event `protobuf:"bytes,11,rep,name=events" json:"events,omitempty"`
 }
 
-func (m *WatchResponse) Reset()         { *m = WatchResponse{} }
-func (m *WatchResponse) String() string { return proto.CompactTextString(m) }
-func (*WatchResponse) ProtoMessage()    {}
-func (*WatchResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{24}
-}
-func (m *WatchResponse) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *WatchResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_WatchResponse.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *WatchResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_WatchResponse.Merge(m, src)
-}
-func (m *WatchResponse) XXX_Size() int {
-	return m.Size()
-}
-func (m *WatchResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_WatchResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_WatchResponse proto.InternalMessageInfo
+func (m *WatchResponse) Reset()                    { *m = WatchResponse{} }
+func (m *WatchResponse) String() string            { return proto.CompactTextString(m) }
+func (*WatchResponse) ProtoMessage()               {}
+func (*WatchResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{24} }
 
 func (m *WatchResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -2684,7 +2563,10 @@ func (m *LeaseGrantRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_LeaseGrantRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_LeaseGrantRequest proto.InternalMessageInfo
+func (m *LeaseGrantRequest) Reset()                    { *m = LeaseGrantRequest{} }
+func (m *LeaseGrantRequest) String() string            { return proto.CompactTextString(m) }
+func (*LeaseGrantRequest) ProtoMessage()               {}
+func (*LeaseGrantRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{25} }
 
 func (m *LeaseGrantRequest) GetTTL() int64 {
 	if m != nil {
@@ -2743,7 +2625,10 @@ func (m *LeaseGrantResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_LeaseGrantResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_LeaseGrantResponse proto.InternalMessageInfo
+func (m *LeaseGrantResponse) Reset()                    { *m = LeaseGrantResponse{} }
+func (m *LeaseGrantResponse) String() string            { return proto.CompactTextString(m) }
+func (*LeaseGrantResponse) ProtoMessage()               {}
+func (*LeaseGrantResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{26} }
 
 func (m *LeaseGrantResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -2812,7 +2697,10 @@ func (m *LeaseRevokeRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_LeaseRevokeRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_LeaseRevokeRequest proto.InternalMessageInfo
+func (m *LeaseRevokeRequest) Reset()                    { *m = LeaseRevokeRequest{} }
+func (m *LeaseRevokeRequest) String() string            { return proto.CompactTextString(m) }
+func (*LeaseRevokeRequest) ProtoMessage()               {}
+func (*LeaseRevokeRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{27} }
 
 func (m *LeaseRevokeRequest) GetID() int64 {
 	if m != nil {
@@ -2859,9 +2747,70 @@ func (m *LeaseRevokeResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_LeaseRevokeResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_LeaseRevokeResponse proto.InternalMessageInfo
+func (m *LeaseRevokeResponse) Reset()                    { *m = LeaseRevokeResponse{} }
+func (m *LeaseRevokeResponse) String() string            { return proto.CompactTextString(m) }
+func (*LeaseRevokeResponse) ProtoMessage()               {}
+func (*LeaseRevokeResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{28} }
 
 func (m *LeaseRevokeResponse) GetHeader() *ResponseHeader {
+	if m != nil {
+		return m.Header
+	}
+	return nil
+}
+
+type LeaseCheckpoint struct {
+	// ID is the lease ID to checkpoint.
+	ID int64 `protobuf:"varint,1,opt,name=ID,proto3" json:"ID,omitempty"`
+	// Remaining_TTL is the remaining time until expiry of the lease.
+	Remaining_TTL int64 `protobuf:"varint,2,opt,name=remaining_TTL,json=remainingTTL,proto3" json:"remaining_TTL,omitempty"`
+}
+
+func (m *LeaseCheckpoint) Reset()                    { *m = LeaseCheckpoint{} }
+func (m *LeaseCheckpoint) String() string            { return proto.CompactTextString(m) }
+func (*LeaseCheckpoint) ProtoMessage()               {}
+func (*LeaseCheckpoint) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{29} }
+
+func (m *LeaseCheckpoint) GetID() int64 {
+	if m != nil {
+		return m.ID
+	}
+	return 0
+}
+
+func (m *LeaseCheckpoint) GetRemaining_TTL() int64 {
+	if m != nil {
+		return m.Remaining_TTL
+	}
+	return 0
+}
+
+type LeaseCheckpointRequest struct {
+	Checkpoints []*LeaseCheckpoint `protobuf:"bytes,1,rep,name=checkpoints" json:"checkpoints,omitempty"`
+}
+
+func (m *LeaseCheckpointRequest) Reset()                    { *m = LeaseCheckpointRequest{} }
+func (m *LeaseCheckpointRequest) String() string            { return proto.CompactTextString(m) }
+func (*LeaseCheckpointRequest) ProtoMessage()               {}
+func (*LeaseCheckpointRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{30} }
+
+func (m *LeaseCheckpointRequest) GetCheckpoints() []*LeaseCheckpoint {
+	if m != nil {
+		return m.Checkpoints
+	}
+	return nil
+}
+
+type LeaseCheckpointResponse struct {
+	Header *ResponseHeader `protobuf:"bytes,1,opt,name=header" json:"header,omitempty"`
+}
+
+func (m *LeaseCheckpointResponse) Reset()                    { *m = LeaseCheckpointResponse{} }
+func (m *LeaseCheckpointResponse) String() string            { return proto.CompactTextString(m) }
+func (*LeaseCheckpointResponse) ProtoMessage()               {}
+func (*LeaseCheckpointResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{31} }
+
+func (m *LeaseCheckpointResponse) GetHeader() *ResponseHeader {
 	if m != nil {
 		return m.Header
 	}
@@ -2907,7 +2856,10 @@ func (m *LeaseKeepAliveRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_LeaseKeepAliveRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_LeaseKeepAliveRequest proto.InternalMessageInfo
+func (m *LeaseKeepAliveRequest) Reset()                    { *m = LeaseKeepAliveRequest{} }
+func (m *LeaseKeepAliveRequest) String() string            { return proto.CompactTextString(m) }
+func (*LeaseKeepAliveRequest) ProtoMessage()               {}
+func (*LeaseKeepAliveRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{32} }
 
 func (m *LeaseKeepAliveRequest) GetID() int64 {
 	if m != nil {
@@ -2958,7 +2910,10 @@ func (m *LeaseKeepAliveResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_LeaseKeepAliveResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_LeaseKeepAliveResponse proto.InternalMessageInfo
+func (m *LeaseKeepAliveResponse) Reset()                    { *m = LeaseKeepAliveResponse{} }
+func (m *LeaseKeepAliveResponse) String() string            { return proto.CompactTextString(m) }
+func (*LeaseKeepAliveResponse) ProtoMessage()               {}
+func (*LeaseKeepAliveResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{33} }
 
 func (m *LeaseKeepAliveResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -3022,7 +2977,10 @@ func (m *LeaseTimeToLiveRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_LeaseTimeToLiveRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_LeaseTimeToLiveRequest proto.InternalMessageInfo
+func (m *LeaseTimeToLiveRequest) Reset()                    { *m = LeaseTimeToLiveRequest{} }
+func (m *LeaseTimeToLiveRequest) String() string            { return proto.CompactTextString(m) }
+func (*LeaseTimeToLiveRequest) ProtoMessage()               {}
+func (*LeaseTimeToLiveRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{34} }
 
 func (m *LeaseTimeToLiveRequest) GetID() int64 {
 	if m != nil {
@@ -3084,7 +3042,10 @@ func (m *LeaseTimeToLiveResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_LeaseTimeToLiveResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_LeaseTimeToLiveResponse proto.InternalMessageInfo
+func (m *LeaseTimeToLiveResponse) Reset()                    { *m = LeaseTimeToLiveResponse{} }
+func (m *LeaseTimeToLiveResponse) String() string            { return proto.CompactTextString(m) }
+func (*LeaseTimeToLiveResponse) ProtoMessage()               {}
+func (*LeaseTimeToLiveResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{35} }
 
 func (m *LeaseTimeToLiveResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -3158,7 +3119,10 @@ func (m *LeaseLeasesRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_LeaseLeasesRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_LeaseLeasesRequest proto.InternalMessageInfo
+func (m *LeaseLeasesRequest) Reset()                    { *m = LeaseLeasesRequest{} }
+func (m *LeaseLeasesRequest) String() string            { return proto.CompactTextString(m) }
+func (*LeaseLeasesRequest) ProtoMessage()               {}
+func (*LeaseLeasesRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{36} }
 
 type LeaseStatus struct {
 	ID                   int64    `protobuf:"varint,1,opt,name=ID,proto3" json:"ID,omitempty"`
@@ -3198,7 +3162,10 @@ func (m *LeaseStatus) XXX_DiscardUnknown() {
 	xxx_messageInfo_LeaseStatus.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_LeaseStatus proto.InternalMessageInfo
+func (m *LeaseStatus) Reset()                    { *m = LeaseStatus{} }
+func (m *LeaseStatus) String() string            { return proto.CompactTextString(m) }
+func (*LeaseStatus) ProtoMessage()               {}
+func (*LeaseStatus) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{37} }
 
 func (m *LeaseStatus) GetID() int64 {
 	if m != nil {
@@ -3246,7 +3213,10 @@ func (m *LeaseLeasesResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_LeaseLeasesResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_LeaseLeasesResponse proto.InternalMessageInfo
+func (m *LeaseLeasesResponse) Reset()                    { *m = LeaseLeasesResponse{} }
+func (m *LeaseLeasesResponse) String() string            { return proto.CompactTextString(m) }
+func (*LeaseLeasesResponse) ProtoMessage()               {}
+func (*LeaseLeasesResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{38} }
 
 func (m *LeaseLeasesResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -3270,44 +3240,15 @@ type Member struct {
 	// peerURLs is the list of URLs the member exposes to the cluster for communication.
 	PeerURLs []string `protobuf:"bytes,3,rep,name=peerURLs,proto3" json:"peerURLs,omitempty"`
 	// clientURLs is the list of URLs the member exposes to clients for communication. If the member is not started, clientURLs will be empty.
-	ClientURLs           []string `protobuf:"bytes,4,rep,name=clientURLs,proto3" json:"clientURLs,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	ClientURLs []string `protobuf:"bytes,4,rep,name=clientURLs" json:"clientURLs,omitempty"`
+	// isLearner indicates if the member is raft learner.
+	IsLearner bool `protobuf:"varint,5,opt,name=isLearner,proto3" json:"isLearner,omitempty"`
 }
 
-func (m *Member) Reset()         { *m = Member{} }
-func (m *Member) String() string { return proto.CompactTextString(m) }
-func (*Member) ProtoMessage()    {}
-func (*Member) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{36}
-}
-func (m *Member) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *Member) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_Member.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *Member) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Member.Merge(m, src)
-}
-func (m *Member) XXX_Size() int {
-	return m.Size()
-}
-func (m *Member) XXX_DiscardUnknown() {
-	xxx_messageInfo_Member.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_Member proto.InternalMessageInfo
+func (m *Member) Reset()                    { *m = Member{} }
+func (m *Member) String() string            { return proto.CompactTextString(m) }
+func (*Member) ProtoMessage()               {}
+func (*Member) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{39} }
 
 func (m *Member) GetID() uint64 {
 	if m != nil {
@@ -3337,52 +3278,37 @@ func (m *Member) GetClientURLs() []string {
 	return nil
 }
 
+func (m *Member) GetIsLearner() bool {
+	if m != nil {
+		return m.IsLearner
+	}
+	return false
+}
+
 type MemberAddRequest struct {
 	// peerURLs is the list of URLs the added member will use to communicate with the cluster.
-	PeerURLs             []string `protobuf:"bytes,1,rep,name=peerURLs,proto3" json:"peerURLs,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	PeerURLs []string `protobuf:"bytes,1,rep,name=peerURLs" json:"peerURLs,omitempty"`
+	// isLearner indicates if the added member is raft learner.
+	IsLearner bool `protobuf:"varint,2,opt,name=isLearner,proto3" json:"isLearner,omitempty"`
 }
 
-func (m *MemberAddRequest) Reset()         { *m = MemberAddRequest{} }
-func (m *MemberAddRequest) String() string { return proto.CompactTextString(m) }
-func (*MemberAddRequest) ProtoMessage()    {}
-func (*MemberAddRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{37}
-}
-func (m *MemberAddRequest) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *MemberAddRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_MemberAddRequest.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *MemberAddRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MemberAddRequest.Merge(m, src)
-}
-func (m *MemberAddRequest) XXX_Size() int {
-	return m.Size()
-}
-func (m *MemberAddRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_MemberAddRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_MemberAddRequest proto.InternalMessageInfo
+func (m *MemberAddRequest) Reset()                    { *m = MemberAddRequest{} }
+func (m *MemberAddRequest) String() string            { return proto.CompactTextString(m) }
+func (*MemberAddRequest) ProtoMessage()               {}
+func (*MemberAddRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{40} }
 
 func (m *MemberAddRequest) GetPeerURLs() []string {
 	if m != nil {
 		return m.PeerURLs
 	}
 	return nil
+}
+
+func (m *MemberAddRequest) GetIsLearner() bool {
+	if m != nil {
+		return m.IsLearner
+	}
+	return false
 }
 
 type MemberAddResponse struct {
@@ -3427,7 +3353,10 @@ func (m *MemberAddResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_MemberAddResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_MemberAddResponse proto.InternalMessageInfo
+func (m *MemberAddResponse) Reset()                    { *m = MemberAddResponse{} }
+func (m *MemberAddResponse) String() string            { return proto.CompactTextString(m) }
+func (*MemberAddResponse) ProtoMessage()               {}
+func (*MemberAddResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{41} }
 
 func (m *MemberAddResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -3489,7 +3418,10 @@ func (m *MemberRemoveRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_MemberRemoveRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_MemberRemoveRequest proto.InternalMessageInfo
+func (m *MemberRemoveRequest) Reset()                    { *m = MemberRemoveRequest{} }
+func (m *MemberRemoveRequest) String() string            { return proto.CompactTextString(m) }
+func (*MemberRemoveRequest) ProtoMessage()               {}
+func (*MemberRemoveRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{42} }
 
 func (m *MemberRemoveRequest) GetID() uint64 {
 	if m != nil {
@@ -3538,7 +3470,10 @@ func (m *MemberRemoveResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_MemberRemoveResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_MemberRemoveResponse proto.InternalMessageInfo
+func (m *MemberRemoveResponse) Reset()                    { *m = MemberRemoveResponse{} }
+func (m *MemberRemoveResponse) String() string            { return proto.CompactTextString(m) }
+func (*MemberRemoveResponse) ProtoMessage()               {}
+func (*MemberRemoveResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{43} }
 
 func (m *MemberRemoveResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -3595,7 +3530,10 @@ func (m *MemberUpdateRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_MemberUpdateRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_MemberUpdateRequest proto.InternalMessageInfo
+func (m *MemberUpdateRequest) Reset()                    { *m = MemberUpdateRequest{} }
+func (m *MemberUpdateRequest) String() string            { return proto.CompactTextString(m) }
+func (*MemberUpdateRequest) ProtoMessage()               {}
+func (*MemberUpdateRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{44} }
 
 func (m *MemberUpdateRequest) GetID() uint64 {
 	if m != nil {
@@ -3651,7 +3589,10 @@ func (m *MemberUpdateResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_MemberUpdateResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_MemberUpdateResponse proto.InternalMessageInfo
+func (m *MemberUpdateResponse) Reset()                    { *m = MemberUpdateResponse{} }
+func (m *MemberUpdateResponse) String() string            { return proto.CompactTextString(m) }
+func (*MemberUpdateResponse) ProtoMessage()               {}
+func (*MemberUpdateResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{45} }
 
 func (m *MemberUpdateResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -3704,7 +3645,10 @@ func (m *MemberListRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_MemberListRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_MemberListRequest proto.InternalMessageInfo
+func (m *MemberListRequest) Reset()                    { *m = MemberListRequest{} }
+func (m *MemberListRequest) String() string            { return proto.CompactTextString(m) }
+func (*MemberListRequest) ProtoMessage()               {}
+func (*MemberListRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{46} }
 
 type MemberListResponse struct {
 	Header *ResponseHeader `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
@@ -3746,7 +3690,10 @@ func (m *MemberListResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_MemberListResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_MemberListResponse proto.InternalMessageInfo
+func (m *MemberListResponse) Reset()                    { *m = MemberListResponse{} }
+func (m *MemberListResponse) String() string            { return proto.CompactTextString(m) }
+func (*MemberListResponse) ProtoMessage()               {}
+func (*MemberListResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{47} }
 
 func (m *MemberListResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -3756,6 +3703,48 @@ func (m *MemberListResponse) GetHeader() *ResponseHeader {
 }
 
 func (m *MemberListResponse) GetMembers() []*Member {
+	if m != nil {
+		return m.Members
+	}
+	return nil
+}
+
+type MemberPromoteRequest struct {
+	// ID is the member ID of the member to promote.
+	ID uint64 `protobuf:"varint,1,opt,name=ID,proto3" json:"ID,omitempty"`
+}
+
+func (m *MemberPromoteRequest) Reset()                    { *m = MemberPromoteRequest{} }
+func (m *MemberPromoteRequest) String() string            { return proto.CompactTextString(m) }
+func (*MemberPromoteRequest) ProtoMessage()               {}
+func (*MemberPromoteRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{48} }
+
+func (m *MemberPromoteRequest) GetID() uint64 {
+	if m != nil {
+		return m.ID
+	}
+	return 0
+}
+
+type MemberPromoteResponse struct {
+	Header *ResponseHeader `protobuf:"bytes,1,opt,name=header" json:"header,omitempty"`
+	// members is a list of all members after promoting the member.
+	Members []*Member `protobuf:"bytes,2,rep,name=members" json:"members,omitempty"`
+}
+
+func (m *MemberPromoteResponse) Reset()                    { *m = MemberPromoteResponse{} }
+func (m *MemberPromoteResponse) String() string            { return proto.CompactTextString(m) }
+func (*MemberPromoteResponse) ProtoMessage()               {}
+func (*MemberPromoteResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{49} }
+
+func (m *MemberPromoteResponse) GetHeader() *ResponseHeader {
+	if m != nil {
+		return m.Header
+	}
+	return nil
+}
+
+func (m *MemberPromoteResponse) GetMembers() []*Member {
 	if m != nil {
 		return m.Members
 	}
@@ -3799,7 +3788,10 @@ func (m *DefragmentRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_DefragmentRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_DefragmentRequest proto.InternalMessageInfo
+func (m *DefragmentRequest) Reset()                    { *m = DefragmentRequest{} }
+func (m *DefragmentRequest) String() string            { return proto.CompactTextString(m) }
+func (*DefragmentRequest) ProtoMessage()               {}
+func (*DefragmentRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{50} }
 
 type DefragmentResponse struct {
 	Header               *ResponseHeader `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
@@ -3839,7 +3831,10 @@ func (m *DefragmentResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_DefragmentResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_DefragmentResponse proto.InternalMessageInfo
+func (m *DefragmentResponse) Reset()                    { *m = DefragmentResponse{} }
+func (m *DefragmentResponse) String() string            { return proto.CompactTextString(m) }
+func (*DefragmentResponse) ProtoMessage()               {}
+func (*DefragmentResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{51} }
 
 func (m *DefragmentResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -3887,7 +3882,10 @@ func (m *MoveLeaderRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_MoveLeaderRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_MoveLeaderRequest proto.InternalMessageInfo
+func (m *MoveLeaderRequest) Reset()                    { *m = MoveLeaderRequest{} }
+func (m *MoveLeaderRequest) String() string            { return proto.CompactTextString(m) }
+func (*MoveLeaderRequest) ProtoMessage()               {}
+func (*MoveLeaderRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{52} }
 
 func (m *MoveLeaderRequest) GetTargetID() uint64 {
 	if m != nil {
@@ -3934,7 +3932,10 @@ func (m *MoveLeaderResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_MoveLeaderResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_MoveLeaderResponse proto.InternalMessageInfo
+func (m *MoveLeaderResponse) Reset()                    { *m = MoveLeaderResponse{} }
+func (m *MoveLeaderResponse) String() string            { return proto.CompactTextString(m) }
+func (*MoveLeaderResponse) ProtoMessage()               {}
+func (*MoveLeaderResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{53} }
 
 func (m *MoveLeaderResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -3989,7 +3990,10 @@ func (m *AlarmRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_AlarmRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AlarmRequest proto.InternalMessageInfo
+func (m *AlarmRequest) Reset()                    { *m = AlarmRequest{} }
+func (m *AlarmRequest) String() string            { return proto.CompactTextString(m) }
+func (*AlarmRequest) ProtoMessage()               {}
+func (*AlarmRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{54} }
 
 func (m *AlarmRequest) GetAction() AlarmRequest_AlarmAction {
 	if m != nil {
@@ -4053,7 +4057,10 @@ func (m *AlarmMember) XXX_DiscardUnknown() {
 	xxx_messageInfo_AlarmMember.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AlarmMember proto.InternalMessageInfo
+func (m *AlarmMember) Reset()                    { *m = AlarmMember{} }
+func (m *AlarmMember) String() string            { return proto.CompactTextString(m) }
+func (*AlarmMember) ProtoMessage()               {}
+func (*AlarmMember) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{55} }
 
 func (m *AlarmMember) GetMemberID() uint64 {
 	if m != nil {
@@ -4109,7 +4116,10 @@ func (m *AlarmResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_AlarmResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AlarmResponse proto.InternalMessageInfo
+func (m *AlarmResponse) Reset()                    { *m = AlarmResponse{} }
+func (m *AlarmResponse) String() string            { return proto.CompactTextString(m) }
+func (*AlarmResponse) ProtoMessage()               {}
+func (*AlarmResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{56} }
 
 func (m *AlarmResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -4162,57 +4172,37 @@ func (m *StatusRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_StatusRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_StatusRequest proto.InternalMessageInfo
+func (m *StatusRequest) Reset()                    { *m = StatusRequest{} }
+func (m *StatusRequest) String() string            { return proto.CompactTextString(m) }
+func (*StatusRequest) ProtoMessage()               {}
+func (*StatusRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{57} }
 
 type StatusResponse struct {
 	Header *ResponseHeader `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
 	// version is the cluster protocol version used by the responding member.
 	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
-	// dbSize is the size of the backend database, in bytes, of the responding member.
+	// dbSize is the size of the backend database physically allocated, in bytes, of the responding member.
 	DbSize int64 `protobuf:"varint,3,opt,name=dbSize,proto3" json:"dbSize,omitempty"`
 	// leader is the member ID which the responding member believes is the current leader.
 	Leader uint64 `protobuf:"varint,4,opt,name=leader,proto3" json:"leader,omitempty"`
-	// raftIndex is the current raft index of the responding member.
+	// raftIndex is the current raft committed index of the responding member.
 	RaftIndex uint64 `protobuf:"varint,5,opt,name=raftIndex,proto3" json:"raftIndex,omitempty"`
 	// raftTerm is the current raft term of the responding member.
-	RaftTerm             uint64   `protobuf:"varint,6,opt,name=raftTerm,proto3" json:"raftTerm,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	RaftTerm uint64 `protobuf:"varint,6,opt,name=raftTerm,proto3" json:"raftTerm,omitempty"`
+	// raftAppliedIndex is the current raft applied index of the responding member.
+	RaftAppliedIndex uint64 `protobuf:"varint,7,opt,name=raftAppliedIndex,proto3" json:"raftAppliedIndex,omitempty"`
+	// errors contains alarm/health information and status.
+	Errors []string `protobuf:"bytes,8,rep,name=errors" json:"errors,omitempty"`
+	// dbSizeInUse is the size of the backend database logically in use, in bytes, of the responding member.
+	DbSizeInUse int64 `protobuf:"varint,9,opt,name=dbSizeInUse,proto3" json:"dbSizeInUse,omitempty"`
+	// isLearner indicates if the member is raft learner.
+	IsLearner bool `protobuf:"varint,10,opt,name=isLearner,proto3" json:"isLearner,omitempty"`
 }
 
-func (m *StatusResponse) Reset()         { *m = StatusResponse{} }
-func (m *StatusResponse) String() string { return proto.CompactTextString(m) }
-func (*StatusResponse) ProtoMessage()    {}
-func (*StatusResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{53}
-}
-func (m *StatusResponse) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *StatusResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_StatusResponse.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *StatusResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StatusResponse.Merge(m, src)
-}
-func (m *StatusResponse) XXX_Size() int {
-	return m.Size()
-}
-func (m *StatusResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_StatusResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_StatusResponse proto.InternalMessageInfo
+func (m *StatusResponse) Reset()                    { *m = StatusResponse{} }
+func (m *StatusResponse) String() string            { return proto.CompactTextString(m) }
+func (*StatusResponse) ProtoMessage()               {}
+func (*StatusResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{58} }
 
 func (m *StatusResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -4256,6 +4246,34 @@ func (m *StatusResponse) GetRaftTerm() uint64 {
 	return 0
 }
 
+func (m *StatusResponse) GetRaftAppliedIndex() uint64 {
+	if m != nil {
+		return m.RaftAppliedIndex
+	}
+	return 0
+}
+
+func (m *StatusResponse) GetErrors() []string {
+	if m != nil {
+		return m.Errors
+	}
+	return nil
+}
+
+func (m *StatusResponse) GetDbSizeInUse() int64 {
+	if m != nil {
+		return m.DbSizeInUse
+	}
+	return 0
+}
+
+func (m *StatusResponse) GetIsLearner() bool {
+	if m != nil {
+		return m.IsLearner
+	}
+	return false
+}
+
 type AuthEnableRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -4293,7 +4311,10 @@ func (m *AuthEnableRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthEnableRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthEnableRequest proto.InternalMessageInfo
+func (m *AuthEnableRequest) Reset()                    { *m = AuthEnableRequest{} }
+func (m *AuthEnableRequest) String() string            { return proto.CompactTextString(m) }
+func (*AuthEnableRequest) ProtoMessage()               {}
+func (*AuthEnableRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{59} }
 
 type AuthDisableRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -4332,7 +4353,10 @@ func (m *AuthDisableRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthDisableRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthDisableRequest proto.InternalMessageInfo
+func (m *AuthDisableRequest) Reset()                    { *m = AuthDisableRequest{} }
+func (m *AuthDisableRequest) String() string            { return proto.CompactTextString(m) }
+func (*AuthDisableRequest) ProtoMessage()               {}
+func (*AuthDisableRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{60} }
 
 type AuthenticateRequest struct {
 	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -4373,7 +4397,10 @@ func (m *AuthenticateRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthenticateRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthenticateRequest proto.InternalMessageInfo
+func (m *AuthenticateRequest) Reset()                    { *m = AuthenticateRequest{} }
+func (m *AuthenticateRequest) String() string            { return proto.CompactTextString(m) }
+func (*AuthenticateRequest) ProtoMessage()               {}
+func (*AuthenticateRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{61} }
 
 func (m *AuthenticateRequest) GetName() string {
 	if m != nil {
@@ -4390,45 +4417,15 @@ func (m *AuthenticateRequest) GetPassword() string {
 }
 
 type AuthUserAddRequest struct {
-	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Password             string   `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Name     string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Password string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	Options  *authpb.UserAddOptions `protobuf:"bytes,3,opt,name=options" json:"options,omitempty"`
 }
 
-func (m *AuthUserAddRequest) Reset()         { *m = AuthUserAddRequest{} }
-func (m *AuthUserAddRequest) String() string { return proto.CompactTextString(m) }
-func (*AuthUserAddRequest) ProtoMessage()    {}
-func (*AuthUserAddRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{57}
-}
-func (m *AuthUserAddRequest) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *AuthUserAddRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_AuthUserAddRequest.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *AuthUserAddRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AuthUserAddRequest.Merge(m, src)
-}
-func (m *AuthUserAddRequest) XXX_Size() int {
-	return m.Size()
-}
-func (m *AuthUserAddRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_AuthUserAddRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_AuthUserAddRequest proto.InternalMessageInfo
+func (m *AuthUserAddRequest) Reset()                    { *m = AuthUserAddRequest{} }
+func (m *AuthUserAddRequest) String() string            { return proto.CompactTextString(m) }
+func (*AuthUserAddRequest) ProtoMessage()               {}
+func (*AuthUserAddRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{62} }
 
 func (m *AuthUserAddRequest) GetName() string {
 	if m != nil {
@@ -4442,6 +4439,13 @@ func (m *AuthUserAddRequest) GetPassword() string {
 		return m.Password
 	}
 	return ""
+}
+
+func (m *AuthUserAddRequest) GetOptions() *authpb.UserAddOptions {
+	if m != nil {
+		return m.Options
+	}
+	return nil
 }
 
 type AuthUserGetRequest struct {
@@ -4482,7 +4486,10 @@ func (m *AuthUserGetRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthUserGetRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthUserGetRequest proto.InternalMessageInfo
+func (m *AuthUserGetRequest) Reset()                    { *m = AuthUserGetRequest{} }
+func (m *AuthUserGetRequest) String() string            { return proto.CompactTextString(m) }
+func (*AuthUserGetRequest) ProtoMessage()               {}
+func (*AuthUserGetRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{63} }
 
 func (m *AuthUserGetRequest) GetName() string {
 	if m != nil {
@@ -4530,7 +4537,10 @@ func (m *AuthUserDeleteRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthUserDeleteRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthUserDeleteRequest proto.InternalMessageInfo
+func (m *AuthUserDeleteRequest) Reset()                    { *m = AuthUserDeleteRequest{} }
+func (m *AuthUserDeleteRequest) String() string            { return proto.CompactTextString(m) }
+func (*AuthUserDeleteRequest) ProtoMessage()               {}
+func (*AuthUserDeleteRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{64} }
 
 func (m *AuthUserDeleteRequest) GetName() string {
 	if m != nil {
@@ -4553,31 +4563,7 @@ func (m *AuthUserChangePasswordRequest) Reset()         { *m = AuthUserChangePas
 func (m *AuthUserChangePasswordRequest) String() string { return proto.CompactTextString(m) }
 func (*AuthUserChangePasswordRequest) ProtoMessage()    {}
 func (*AuthUserChangePasswordRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{60}
-}
-func (m *AuthUserChangePasswordRequest) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *AuthUserChangePasswordRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_AuthUserChangePasswordRequest.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *AuthUserChangePasswordRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AuthUserChangePasswordRequest.Merge(m, src)
-}
-func (m *AuthUserChangePasswordRequest) XXX_Size() int {
-	return m.Size()
-}
-func (m *AuthUserChangePasswordRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_AuthUserChangePasswordRequest.DiscardUnknown(m)
+	return fileDescriptorRpc, []int{65}
 }
 
 var xxx_messageInfo_AuthUserChangePasswordRequest proto.InternalMessageInfo
@@ -4637,7 +4623,10 @@ func (m *AuthUserGrantRoleRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthUserGrantRoleRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthUserGrantRoleRequest proto.InternalMessageInfo
+func (m *AuthUserGrantRoleRequest) Reset()                    { *m = AuthUserGrantRoleRequest{} }
+func (m *AuthUserGrantRoleRequest) String() string            { return proto.CompactTextString(m) }
+func (*AuthUserGrantRoleRequest) ProtoMessage()               {}
+func (*AuthUserGrantRoleRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{66} }
 
 func (m *AuthUserGrantRoleRequest) GetUser() string {
 	if m != nil {
@@ -4692,7 +4681,10 @@ func (m *AuthUserRevokeRoleRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthUserRevokeRoleRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthUserRevokeRoleRequest proto.InternalMessageInfo
+func (m *AuthUserRevokeRoleRequest) Reset()                    { *m = AuthUserRevokeRoleRequest{} }
+func (m *AuthUserRevokeRoleRequest) String() string            { return proto.CompactTextString(m) }
+func (*AuthUserRevokeRoleRequest) ProtoMessage()               {}
+func (*AuthUserRevokeRoleRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{67} }
 
 func (m *AuthUserRevokeRoleRequest) GetName() string {
 	if m != nil {
@@ -4747,7 +4739,10 @@ func (m *AuthRoleAddRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthRoleAddRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthRoleAddRequest proto.InternalMessageInfo
+func (m *AuthRoleAddRequest) Reset()                    { *m = AuthRoleAddRequest{} }
+func (m *AuthRoleAddRequest) String() string            { return proto.CompactTextString(m) }
+func (*AuthRoleAddRequest) ProtoMessage()               {}
+func (*AuthRoleAddRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{68} }
 
 func (m *AuthRoleAddRequest) GetName() string {
 	if m != nil {
@@ -4794,7 +4789,10 @@ func (m *AuthRoleGetRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthRoleGetRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthRoleGetRequest proto.InternalMessageInfo
+func (m *AuthRoleGetRequest) Reset()                    { *m = AuthRoleGetRequest{} }
+func (m *AuthRoleGetRequest) String() string            { return proto.CompactTextString(m) }
+func (*AuthRoleGetRequest) ProtoMessage()               {}
+func (*AuthRoleGetRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{69} }
 
 func (m *AuthRoleGetRequest) GetRole() string {
 	if m != nil {
@@ -4840,7 +4838,10 @@ func (m *AuthUserListRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthUserListRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthUserListRequest proto.InternalMessageInfo
+func (m *AuthUserListRequest) Reset()                    { *m = AuthUserListRequest{} }
+func (m *AuthUserListRequest) String() string            { return proto.CompactTextString(m) }
+func (*AuthUserListRequest) ProtoMessage()               {}
+func (*AuthUserListRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{70} }
 
 type AuthRoleListRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -4879,7 +4880,10 @@ func (m *AuthRoleListRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthRoleListRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthRoleListRequest proto.InternalMessageInfo
+func (m *AuthRoleListRequest) Reset()                    { *m = AuthRoleListRequest{} }
+func (m *AuthRoleListRequest) String() string            { return proto.CompactTextString(m) }
+func (*AuthRoleListRequest) ProtoMessage()               {}
+func (*AuthRoleListRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{71} }
 
 type AuthRoleDeleteRequest struct {
 	Role                 string   `protobuf:"bytes,1,opt,name=role,proto3" json:"role,omitempty"`
@@ -4919,7 +4923,10 @@ func (m *AuthRoleDeleteRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthRoleDeleteRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthRoleDeleteRequest proto.InternalMessageInfo
+func (m *AuthRoleDeleteRequest) Reset()                    { *m = AuthRoleDeleteRequest{} }
+func (m *AuthRoleDeleteRequest) String() string            { return proto.CompactTextString(m) }
+func (*AuthRoleDeleteRequest) ProtoMessage()               {}
+func (*AuthRoleDeleteRequest) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{72} }
 
 func (m *AuthRoleDeleteRequest) GetRole() string {
 	if m != nil {
@@ -4942,28 +4949,7 @@ func (m *AuthRoleGrantPermissionRequest) Reset()         { *m = AuthRoleGrantPer
 func (m *AuthRoleGrantPermissionRequest) String() string { return proto.CompactTextString(m) }
 func (*AuthRoleGrantPermissionRequest) ProtoMessage()    {}
 func (*AuthRoleGrantPermissionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{68}
-}
-func (m *AuthRoleGrantPermissionRequest) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *AuthRoleGrantPermissionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_AuthRoleGrantPermissionRequest.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *AuthRoleGrantPermissionRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AuthRoleGrantPermissionRequest.Merge(m, src)
-}
-func (m *AuthRoleGrantPermissionRequest) XXX_Size() int {
-	return m.Size()
+	return fileDescriptorRpc, []int{73}
 }
 func (m *AuthRoleGrantPermissionRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthRoleGrantPermissionRequest.DiscardUnknown(m)
@@ -4986,19 +4972,16 @@ func (m *AuthRoleGrantPermissionRequest) GetPerm() *authpb.Permission {
 }
 
 type AuthRoleRevokePermissionRequest struct {
-	Role                 string   `protobuf:"bytes,1,opt,name=role,proto3" json:"role,omitempty"`
-	Key                  string   `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	RangeEnd             string   `protobuf:"bytes,3,opt,name=range_end,json=rangeEnd,proto3" json:"range_end,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Role     string `protobuf:"bytes,1,opt,name=role,proto3" json:"role,omitempty"`
+	Key      []byte `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	RangeEnd []byte `protobuf:"bytes,3,opt,name=range_end,json=rangeEnd,proto3" json:"range_end,omitempty"`
 }
 
 func (m *AuthRoleRevokePermissionRequest) Reset()         { *m = AuthRoleRevokePermissionRequest{} }
 func (m *AuthRoleRevokePermissionRequest) String() string { return proto.CompactTextString(m) }
 func (*AuthRoleRevokePermissionRequest) ProtoMessage()    {}
 func (*AuthRoleRevokePermissionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{69}
+	return fileDescriptorRpc, []int{74}
 }
 func (m *AuthRoleRevokePermissionRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -5034,18 +5017,18 @@ func (m *AuthRoleRevokePermissionRequest) GetRole() string {
 	return ""
 }
 
-func (m *AuthRoleRevokePermissionRequest) GetKey() string {
+func (m *AuthRoleRevokePermissionRequest) GetKey() []byte {
 	if m != nil {
 		return m.Key
 	}
-	return ""
+	return nil
 }
 
-func (m *AuthRoleRevokePermissionRequest) GetRangeEnd() string {
+func (m *AuthRoleRevokePermissionRequest) GetRangeEnd() []byte {
 	if m != nil {
 		return m.RangeEnd
 	}
-	return ""
+	return nil
 }
 
 type AuthEnableResponse struct {
@@ -5086,7 +5069,10 @@ func (m *AuthEnableResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthEnableResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthEnableResponse proto.InternalMessageInfo
+func (m *AuthEnableResponse) Reset()                    { *m = AuthEnableResponse{} }
+func (m *AuthEnableResponse) String() string            { return proto.CompactTextString(m) }
+func (*AuthEnableResponse) ProtoMessage()               {}
+func (*AuthEnableResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{75} }
 
 func (m *AuthEnableResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -5133,7 +5119,10 @@ func (m *AuthDisableResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthDisableResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthDisableResponse proto.InternalMessageInfo
+func (m *AuthDisableResponse) Reset()                    { *m = AuthDisableResponse{} }
+func (m *AuthDisableResponse) String() string            { return proto.CompactTextString(m) }
+func (*AuthDisableResponse) ProtoMessage()               {}
+func (*AuthDisableResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{76} }
 
 func (m *AuthDisableResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -5182,7 +5171,10 @@ func (m *AuthenticateResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthenticateResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthenticateResponse proto.InternalMessageInfo
+func (m *AuthenticateResponse) Reset()                    { *m = AuthenticateResponse{} }
+func (m *AuthenticateResponse) String() string            { return proto.CompactTextString(m) }
+func (*AuthenticateResponse) ProtoMessage()               {}
+func (*AuthenticateResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{77} }
 
 func (m *AuthenticateResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -5236,7 +5228,10 @@ func (m *AuthUserAddResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthUserAddResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthUserAddResponse proto.InternalMessageInfo
+func (m *AuthUserAddResponse) Reset()                    { *m = AuthUserAddResponse{} }
+func (m *AuthUserAddResponse) String() string            { return proto.CompactTextString(m) }
+func (*AuthUserAddResponse) ProtoMessage()               {}
+func (*AuthUserAddResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{78} }
 
 func (m *AuthUserAddResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -5284,7 +5279,10 @@ func (m *AuthUserGetResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthUserGetResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthUserGetResponse proto.InternalMessageInfo
+func (m *AuthUserGetResponse) Reset()                    { *m = AuthUserGetResponse{} }
+func (m *AuthUserGetResponse) String() string            { return proto.CompactTextString(m) }
+func (*AuthUserGetResponse) ProtoMessage()               {}
+func (*AuthUserGetResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{79} }
 
 func (m *AuthUserGetResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -5338,7 +5336,10 @@ func (m *AuthUserDeleteResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthUserDeleteResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthUserDeleteResponse proto.InternalMessageInfo
+func (m *AuthUserDeleteResponse) Reset()                    { *m = AuthUserDeleteResponse{} }
+func (m *AuthUserDeleteResponse) String() string            { return proto.CompactTextString(m) }
+func (*AuthUserDeleteResponse) ProtoMessage()               {}
+func (*AuthUserDeleteResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{80} }
 
 func (m *AuthUserDeleteResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -5358,22 +5359,7 @@ func (m *AuthUserChangePasswordResponse) Reset()         { *m = AuthUserChangePa
 func (m *AuthUserChangePasswordResponse) String() string { return proto.CompactTextString(m) }
 func (*AuthUserChangePasswordResponse) ProtoMessage()    {}
 func (*AuthUserChangePasswordResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{76}
-}
-func (m *AuthUserChangePasswordResponse) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *AuthUserChangePasswordResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_AuthUserChangePasswordResponse.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return fileDescriptorRpc, []int{81}
 }
 func (m *AuthUserChangePasswordResponse) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_AuthUserChangePasswordResponse.Merge(m, src)
@@ -5432,7 +5418,10 @@ func (m *AuthUserGrantRoleResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthUserGrantRoleResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthUserGrantRoleResponse proto.InternalMessageInfo
+func (m *AuthUserGrantRoleResponse) Reset()                    { *m = AuthUserGrantRoleResponse{} }
+func (m *AuthUserGrantRoleResponse) String() string            { return proto.CompactTextString(m) }
+func (*AuthUserGrantRoleResponse) ProtoMessage()               {}
+func (*AuthUserGrantRoleResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{82} }
 
 func (m *AuthUserGrantRoleResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -5479,7 +5468,10 @@ func (m *AuthUserRevokeRoleResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthUserRevokeRoleResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthUserRevokeRoleResponse proto.InternalMessageInfo
+func (m *AuthUserRevokeRoleResponse) Reset()                    { *m = AuthUserRevokeRoleResponse{} }
+func (m *AuthUserRevokeRoleResponse) String() string            { return proto.CompactTextString(m) }
+func (*AuthUserRevokeRoleResponse) ProtoMessage()               {}
+func (*AuthUserRevokeRoleResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{83} }
 
 func (m *AuthUserRevokeRoleResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -5526,7 +5518,10 @@ func (m *AuthRoleAddResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthRoleAddResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthRoleAddResponse proto.InternalMessageInfo
+func (m *AuthRoleAddResponse) Reset()                    { *m = AuthRoleAddResponse{} }
+func (m *AuthRoleAddResponse) String() string            { return proto.CompactTextString(m) }
+func (*AuthRoleAddResponse) ProtoMessage()               {}
+func (*AuthRoleAddResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{84} }
 
 func (m *AuthRoleAddResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -5574,7 +5569,10 @@ func (m *AuthRoleGetResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthRoleGetResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthRoleGetResponse proto.InternalMessageInfo
+func (m *AuthRoleGetResponse) Reset()                    { *m = AuthRoleGetResponse{} }
+func (m *AuthRoleGetResponse) String() string            { return proto.CompactTextString(m) }
+func (*AuthRoleGetResponse) ProtoMessage()               {}
+func (*AuthRoleGetResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{85} }
 
 func (m *AuthRoleGetResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -5629,7 +5627,10 @@ func (m *AuthRoleListResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthRoleListResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthRoleListResponse proto.InternalMessageInfo
+func (m *AuthRoleListResponse) Reset()                    { *m = AuthRoleListResponse{} }
+func (m *AuthRoleListResponse) String() string            { return proto.CompactTextString(m) }
+func (*AuthRoleListResponse) ProtoMessage()               {}
+func (*AuthRoleListResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{86} }
 
 func (m *AuthRoleListResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -5684,7 +5685,10 @@ func (m *AuthUserListResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthUserListResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthUserListResponse proto.InternalMessageInfo
+func (m *AuthUserListResponse) Reset()                    { *m = AuthUserListResponse{} }
+func (m *AuthUserListResponse) String() string            { return proto.CompactTextString(m) }
+func (*AuthUserListResponse) ProtoMessage()               {}
+func (*AuthUserListResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{87} }
 
 func (m *AuthUserListResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -5738,7 +5742,10 @@ func (m *AuthRoleDeleteResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_AuthRoleDeleteResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AuthRoleDeleteResponse proto.InternalMessageInfo
+func (m *AuthRoleDeleteResponse) Reset()                    { *m = AuthRoleDeleteResponse{} }
+func (m *AuthRoleDeleteResponse) String() string            { return proto.CompactTextString(m) }
+func (*AuthRoleDeleteResponse) ProtoMessage()               {}
+func (*AuthRoleDeleteResponse) Descriptor() ([]byte, []int) { return fileDescriptorRpc, []int{88} }
 
 func (m *AuthRoleDeleteResponse) GetHeader() *ResponseHeader {
 	if m != nil {
@@ -5758,31 +5765,7 @@ func (m *AuthRoleGrantPermissionResponse) Reset()         { *m = AuthRoleGrantPe
 func (m *AuthRoleGrantPermissionResponse) String() string { return proto.CompactTextString(m) }
 func (*AuthRoleGrantPermissionResponse) ProtoMessage()    {}
 func (*AuthRoleGrantPermissionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{84}
-}
-func (m *AuthRoleGrantPermissionResponse) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *AuthRoleGrantPermissionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_AuthRoleGrantPermissionResponse.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *AuthRoleGrantPermissionResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AuthRoleGrantPermissionResponse.Merge(m, src)
-}
-func (m *AuthRoleGrantPermissionResponse) XXX_Size() int {
-	return m.Size()
-}
-func (m *AuthRoleGrantPermissionResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_AuthRoleGrantPermissionResponse.DiscardUnknown(m)
+	return fileDescriptorRpc, []int{89}
 }
 
 var xxx_messageInfo_AuthRoleGrantPermissionResponse proto.InternalMessageInfo
@@ -5805,10 +5788,7 @@ func (m *AuthRoleRevokePermissionResponse) Reset()         { *m = AuthRoleRevoke
 func (m *AuthRoleRevokePermissionResponse) String() string { return proto.CompactTextString(m) }
 func (*AuthRoleRevokePermissionResponse) ProtoMessage()    {}
 func (*AuthRoleRevokePermissionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{85}
-}
-func (m *AuthRoleRevokePermissionResponse) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return fileDescriptorRpc, []int{90}
 }
 func (m *AuthRoleRevokePermissionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
@@ -5878,6 +5858,9 @@ func init() {
 	proto.RegisterType((*LeaseGrantResponse)(nil), "etcdserverpb.LeaseGrantResponse")
 	proto.RegisterType((*LeaseRevokeRequest)(nil), "etcdserverpb.LeaseRevokeRequest")
 	proto.RegisterType((*LeaseRevokeResponse)(nil), "etcdserverpb.LeaseRevokeResponse")
+	proto.RegisterType((*LeaseCheckpoint)(nil), "etcdserverpb.LeaseCheckpoint")
+	proto.RegisterType((*LeaseCheckpointRequest)(nil), "etcdserverpb.LeaseCheckpointRequest")
+	proto.RegisterType((*LeaseCheckpointResponse)(nil), "etcdserverpb.LeaseCheckpointResponse")
 	proto.RegisterType((*LeaseKeepAliveRequest)(nil), "etcdserverpb.LeaseKeepAliveRequest")
 	proto.RegisterType((*LeaseKeepAliveResponse)(nil), "etcdserverpb.LeaseKeepAliveResponse")
 	proto.RegisterType((*LeaseTimeToLiveRequest)(nil), "etcdserverpb.LeaseTimeToLiveRequest")
@@ -5894,6 +5877,8 @@ func init() {
 	proto.RegisterType((*MemberUpdateResponse)(nil), "etcdserverpb.MemberUpdateResponse")
 	proto.RegisterType((*MemberListRequest)(nil), "etcdserverpb.MemberListRequest")
 	proto.RegisterType((*MemberListResponse)(nil), "etcdserverpb.MemberListResponse")
+	proto.RegisterType((*MemberPromoteRequest)(nil), "etcdserverpb.MemberPromoteRequest")
+	proto.RegisterType((*MemberPromoteResponse)(nil), "etcdserverpb.MemberPromoteResponse")
 	proto.RegisterType((*DefragmentRequest)(nil), "etcdserverpb.DefragmentRequest")
 	proto.RegisterType((*DefragmentResponse)(nil), "etcdserverpb.DefragmentResponse")
 	proto.RegisterType((*MoveLeaderRequest)(nil), "etcdserverpb.MoveLeaderRequest")
@@ -6818,6 +6803,8 @@ type ClusterClient interface {
 	MemberUpdate(ctx context.Context, in *MemberUpdateRequest, opts ...grpc.CallOption) (*MemberUpdateResponse, error)
 	// MemberList lists all the members in the cluster.
 	MemberList(ctx context.Context, in *MemberListRequest, opts ...grpc.CallOption) (*MemberListResponse, error)
+	// MemberPromote promotes a member from raft learner (non-voting) to raft voting member.
+	MemberPromote(ctx context.Context, in *MemberPromoteRequest, opts ...grpc.CallOption) (*MemberPromoteResponse, error)
 }
 
 type clusterClient struct {
@@ -6864,7 +6851,17 @@ func (c *clusterClient) MemberList(ctx context.Context, in *MemberListRequest, o
 	return out, nil
 }
 
-// ClusterServer is the server API for Cluster service.
+func (c *clusterClient) MemberPromote(ctx context.Context, in *MemberPromoteRequest, opts ...grpc.CallOption) (*MemberPromoteResponse, error) {
+	out := new(MemberPromoteResponse)
+	err := grpc.Invoke(ctx, "/etcdserverpb.Cluster/MemberPromote", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for Cluster service
+
 type ClusterServer interface {
 	// MemberAdd adds a member into the cluster.
 	MemberAdd(context.Context, *MemberAddRequest) (*MemberAddResponse, error)
@@ -6874,6 +6871,8 @@ type ClusterServer interface {
 	MemberUpdate(context.Context, *MemberUpdateRequest) (*MemberUpdateResponse, error)
 	// MemberList lists all the members in the cluster.
 	MemberList(context.Context, *MemberListRequest) (*MemberListResponse, error)
+	// MemberPromote promotes a member from raft learner (non-voting) to raft voting member.
+	MemberPromote(context.Context, *MemberPromoteRequest) (*MemberPromoteResponse, error)
 }
 
 // UnimplementedClusterServer can be embedded to have forward compatible implementations.
@@ -6969,6 +6968,24 @@ func _Cluster_MemberList_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Cluster_MemberPromote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MemberPromoteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClusterServer).MemberPromote(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/etcdserverpb.Cluster/MemberPromote",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClusterServer).MemberPromote(ctx, req.(*MemberPromoteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Cluster_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "etcdserverpb.Cluster",
 	HandlerType: (*ClusterServer)(nil),
@@ -6989,6 +7006,10 @@ var _Cluster_serviceDesc = grpc.ServiceDesc{
 			MethodName: "MemberList",
 			Handler:    _Cluster_MemberList_Handler,
 		},
+		{
+			MethodName: "MemberPromote",
+			Handler:    _Cluster_MemberPromote_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "rpc.proto",
@@ -7004,11 +7025,15 @@ type MaintenanceClient interface {
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 	// Defragment defragments a member's backend database to recover storage space.
 	Defragment(ctx context.Context, in *DefragmentRequest, opts ...grpc.CallOption) (*DefragmentResponse, error)
-	// Hash computes the hash of the KV's backend.
-	// This is designed for testing; do not use this in production when there
-	// are ongoing transactions.
+	// Hash computes the hash of whole backend keyspace,
+	// including key, lease, and other buckets in storage.
+	// This is designed for testing ONLY!
+	// Do not rely on this in production with ongoing transactions,
+	// since Hash operation does not hold MVCC locks.
+	// Use "HashKV" API instead for "key" bucket consistency checks.
 	Hash(ctx context.Context, in *HashRequest, opts ...grpc.CallOption) (*HashResponse, error)
 	// HashKV computes the hash of all MVCC keys up to a given revision.
+	// It only iterates "key" bucket in backend storage.
 	HashKV(ctx context.Context, in *HashKVRequest, opts ...grpc.CallOption) (*HashKVResponse, error)
 	// Snapshot sends a snapshot of the entire backend from a member over a stream to a client.
 	Snapshot(ctx context.Context, in *SnapshotRequest, opts ...grpc.CallOption) (Maintenance_SnapshotClient, error)
@@ -7118,11 +7143,15 @@ type MaintenanceServer interface {
 	Status(context.Context, *StatusRequest) (*StatusResponse, error)
 	// Defragment defragments a member's backend database to recover storage space.
 	Defragment(context.Context, *DefragmentRequest) (*DefragmentResponse, error)
-	// Hash computes the hash of the KV's backend.
-	// This is designed for testing; do not use this in production when there
-	// are ongoing transactions.
+	// Hash computes the hash of whole backend keyspace,
+	// including key, lease, and other buckets in storage.
+	// This is designed for testing ONLY!
+	// Do not rely on this in production with ongoing transactions,
+	// since Hash operation does not hold MVCC locks.
+	// Use "HashKV" API instead for "key" bucket consistency checks.
 	Hash(context.Context, *HashRequest) (*HashResponse, error)
 	// HashKV computes the hash of all MVCC keys up to a given revision.
+	// It only iterates "key" bucket in backend storage.
 	HashKV(context.Context, *HashKVRequest) (*HashKVResponse, error)
 	// Snapshot sends a snapshot of the entire backend from a member over a stream to a client.
 	Snapshot(*SnapshotRequest, Maintenance_SnapshotServer) error
@@ -7338,7 +7367,7 @@ type AuthClient interface {
 	AuthDisable(ctx context.Context, in *AuthDisableRequest, opts ...grpc.CallOption) (*AuthDisableResponse, error)
 	// Authenticate processes an authenticate request.
 	Authenticate(ctx context.Context, in *AuthenticateRequest, opts ...grpc.CallOption) (*AuthenticateResponse, error)
-	// UserAdd adds a new user.
+	// UserAdd adds a new user. User name cannot be empty.
 	UserAdd(ctx context.Context, in *AuthUserAddRequest, opts ...grpc.CallOption) (*AuthUserAddResponse, error)
 	// UserGet gets detailed user information.
 	UserGet(ctx context.Context, in *AuthUserGetRequest, opts ...grpc.CallOption) (*AuthUserGetResponse, error)
@@ -7352,7 +7381,7 @@ type AuthClient interface {
 	UserGrantRole(ctx context.Context, in *AuthUserGrantRoleRequest, opts ...grpc.CallOption) (*AuthUserGrantRoleResponse, error)
 	// UserRevokeRole revokes a role of specified user.
 	UserRevokeRole(ctx context.Context, in *AuthUserRevokeRoleRequest, opts ...grpc.CallOption) (*AuthUserRevokeRoleResponse, error)
-	// RoleAdd adds a new role.
+	// RoleAdd adds a new role. Role name cannot be empty.
 	RoleAdd(ctx context.Context, in *AuthRoleAddRequest, opts ...grpc.CallOption) (*AuthRoleAddResponse, error)
 	// RoleGet gets detailed role information.
 	RoleGet(ctx context.Context, in *AuthRoleGetRequest, opts ...grpc.CallOption) (*AuthRoleGetResponse, error)
@@ -7526,7 +7555,7 @@ type AuthServer interface {
 	AuthDisable(context.Context, *AuthDisableRequest) (*AuthDisableResponse, error)
 	// Authenticate processes an authenticate request.
 	Authenticate(context.Context, *AuthenticateRequest) (*AuthenticateResponse, error)
-	// UserAdd adds a new user.
+	// UserAdd adds a new user. User name cannot be empty.
 	UserAdd(context.Context, *AuthUserAddRequest) (*AuthUserAddResponse, error)
 	// UserGet gets detailed user information.
 	UserGet(context.Context, *AuthUserGetRequest) (*AuthUserGetResponse, error)
@@ -7540,7 +7569,7 @@ type AuthServer interface {
 	UserGrantRole(context.Context, *AuthUserGrantRoleRequest) (*AuthUserGrantRoleResponse, error)
 	// UserRevokeRole revokes a role of specified user.
 	UserRevokeRole(context.Context, *AuthUserRevokeRoleRequest) (*AuthUserRevokeRoleResponse, error)
-	// RoleAdd adds a new role.
+	// RoleAdd adds a new role. Role name cannot be empty.
 	RoleAdd(context.Context, *AuthRoleAddRequest) (*AuthRoleAddResponse, error)
 	// RoleGet gets detailed role information.
 	RoleGet(context.Context, *AuthRoleGetRequest) (*AuthRoleGetResponse, error)
@@ -9326,6 +9355,20 @@ func (m *WatchRequest_ProgressRequest) MarshalToSizedBuffer(dAtA []byte) (int, e
 	}
 	return len(dAtA) - i, nil
 }
+func (m *WatchRequest_ProgressRequest) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.ProgressRequest != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.ProgressRequest.Size()))
+		n24, err := m.ProgressRequest.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n24
+	}
+	return i, nil
+}
 func (m *WatchCreateRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -9376,22 +9419,25 @@ func (m *WatchCreateRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		dAtA[i] = 0x30
 	}
 	if len(m.Filters) > 0 {
-		dAtA22 := make([]byte, len(m.Filters)*10)
-		var j21 int
+		dAtA26 := make([]byte, len(m.Filters)*10)
+		var j25 int
 		for _, num := range m.Filters {
 			for num >= 1<<7 {
-				dAtA22[j21] = uint8(uint64(num)&0x7f | 0x80)
+				dAtA26[j25] = uint8(uint64(num)&0x7f | 0x80)
 				num >>= 7
-				j21++
+				j25++
 			}
-			dAtA22[j21] = uint8(num)
-			j21++
+			dAtA26[j25] = uint8(num)
+			j25++
 		}
 		i -= j21
 		copy(dAtA[i:], dAtA22[:j21])
 		i = encodeVarintRpc(dAtA, i, uint64(j21))
 		i--
 		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(j25))
+		i += copy(dAtA[i:], dAtA26[:j25])
 	}
 	if m.ProgressNotify {
 		i--
@@ -9422,7 +9468,22 @@ func (m *WatchCreateRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0xa
 	}
-	return len(dAtA) - i, nil
+	if m.WatchId != 0 {
+		dAtA[i] = 0x38
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.WatchId))
+	}
+	if m.Fragment {
+		dAtA[i] = 0x40
+		i++
+		if m.Fragment {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	return i, nil
 }
 
 func (m *WatchCancelRequest) Marshal() (dAtA []byte, err error) {
@@ -9484,6 +9545,24 @@ func (m *WatchProgressRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *WatchProgressRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WatchProgressRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	return i, nil
+}
+
 func (m *WatchResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -9504,9 +9583,15 @@ func (m *WatchResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n27, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n27
 	}
 	if len(m.Events) > 0 {
 		for iNdEx := len(m.Events) - 1; iNdEx >= 0; iNdEx-- {
@@ -9569,9 +9654,22 @@ func (m *WatchResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x10
 	}
-	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
+	if m.Fragment {
+		dAtA[i] = 0x38
+		i++
+		if m.Fragment {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if len(m.Events) > 0 {
+		for _, msg := range m.Events {
+			dAtA[i] = 0x5a
+			i++
+			i = encodeVarintRpc(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
 			if err != nil {
 				return 0, err
 			}
@@ -9641,9 +9739,15 @@ func (m *LeaseGrantResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n28, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n28
 	}
 	if len(m.Error) > 0 {
 		i -= len(m.Error)
@@ -9734,21 +9838,19 @@ func (m *LeaseRevokeResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n29, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n29
 	}
 	return len(dAtA) - i, nil
 }
 
-func (m *LeaseKeepAliveRequest) Marshal() (dAtA []byte, err error) {
+func (m *LeaseCheckpoint) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -9758,13 +9860,8 @@ func (m *LeaseKeepAliveRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *LeaseKeepAliveRequest) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *LeaseKeepAliveRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
+func (m *LeaseCheckpoint) MarshalTo(dAtA []byte) (int, error) {
+	var i int
 	_ = i
 	var l int
 	_ = l
@@ -9777,13 +9874,99 @@ func (m *LeaseKeepAliveRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x8
 	}
+	if m.Remaining_TTL != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Remaining_TTL))
+	}
+	return i, nil
+}
+
+func (m *LeaseCheckpointRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *LeaseCheckpointRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Checkpoints) > 0 {
+		for _, msg := range m.Checkpoints {
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintRpc(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
 	return len(dAtA) - i, nil
+}
+
+func (m *LeaseCheckpointResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *LeaseCheckpointResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n30, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n30
+	}
+	return i, nil
+}
+
+func (m *LeaseKeepAliveRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *LeaseKeepAliveRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.ID != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.ID))
+	}
+	return i, nil
 }
 
 func (m *LeaseKeepAliveResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	n, err := m.MarshalTo(dAtA)
 	if err != nil {
 		return nil, err
 	}
@@ -9791,48 +9974,37 @@ func (m *LeaseKeepAliveResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *LeaseKeepAliveResponse) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *LeaseKeepAliveResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
+	var i int
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if m.TTL != 0 {
-		i = encodeVarintRpc(dAtA, i, uint64(m.TTL))
-		i--
-		dAtA[i] = 0x18
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n31, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n31
 	}
 	if m.ID != 0 {
-		i = encodeVarintRpc(dAtA, i, uint64(m.ID))
-		i--
 		dAtA[i] = 0x10
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.ID))
 	}
-	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0xa
+	if m.TTL != 0 {
+		dAtA[i] = 0x18
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.TTL))
 	}
-	return len(dAtA) - i, nil
+	return i, nil
 }
 
 func (m *LeaseTimeToLiveRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	n, err := m.MarshalTo(dAtA)
 	if err != nil {
 		return nil, err
 	}
@@ -9840,21 +10012,18 @@ func (m *LeaseTimeToLiveRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *LeaseTimeToLiveRequest) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *LeaseTimeToLiveRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
+	var i int
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
+	if m.ID != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.ID))
 	}
 	if m.Keys {
-		i--
+		dAtA[i] = 0x10
+		i++
 		if m.Keys {
 			dAtA[i] = 1
 		} else {
@@ -9891,18 +10060,15 @@ func (m *LeaseTimeToLiveResponse) MarshalToSizedBuffer(dAtA []byte) (int, error)
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if len(m.Keys) > 0 {
-		for iNdEx := len(m.Keys) - 1; iNdEx >= 0; iNdEx-- {
-			i -= len(m.Keys[iNdEx])
-			copy(dAtA[i:], m.Keys[iNdEx])
-			i = encodeVarintRpc(dAtA, i, uint64(len(m.Keys[iNdEx])))
-			i--
-			dAtA[i] = 0x2a
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n32, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
+		i += n32
 	}
 	if m.GrantedTTL != 0 {
 		i = encodeVarintRpc(dAtA, i, uint64(m.GrantedTTL))
@@ -10013,9 +10179,15 @@ func (m *LeaseLeasesResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n33, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n33
 	}
 	if len(m.Leases) > 0 {
 		for iNdEx := len(m.Leases) - 1; iNdEx >= 0; iNdEx-- {
@@ -10100,7 +10272,17 @@ func (m *Member) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x8
 	}
-	return len(dAtA) - i, nil
+	if m.IsLearner {
+		dAtA[i] = 0x28
+		i++
+		if m.IsLearner {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	return i, nil
 }
 
 func (m *MemberAddRequest) Marshal() (dAtA []byte, err error) {
@@ -10136,7 +10318,17 @@ func (m *MemberAddRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			dAtA[i] = 0xa
 		}
 	}
-	return len(dAtA) - i, nil
+	if m.IsLearner {
+		dAtA[i] = 0x10
+		i++
+		if m.IsLearner {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	return i, nil
 }
 
 func (m *MemberAddResponse) Marshal() (dAtA []byte, err error) {
@@ -10159,35 +10351,25 @@ func (m *MemberAddResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if len(m.Members) > 0 {
-		for iNdEx := len(m.Members) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.Members[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintRpc(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0x1a
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n34, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
+		i += n34
 	}
 	if m.Member != nil {
-		{
-			size, err := m.Member.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0x12
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Member.Size()))
+		n35, err := m.Member.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n35
 	}
 	if m.Header != nil {
 		{
@@ -10256,9 +10438,15 @@ func (m *MemberRemoveResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n36, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n36
 	}
 	if len(m.Members) > 0 {
 		for iNdEx := len(m.Members) - 1; iNdEx >= 0; iNdEx-- {
@@ -10350,9 +10538,15 @@ func (m *MemberUpdateResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n37, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n37
 	}
 	if len(m.Members) > 0 {
 		for iNdEx := len(m.Members) - 1; iNdEx >= 0; iNdEx-- {
@@ -10430,9 +10624,78 @@ func (m *MemberListResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n38, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n38
+	}
+	if len(m.Members) > 0 {
+		for _, msg := range m.Members {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintRpc(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	return i, nil
+}
+
+func (m *MemberPromoteRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MemberPromoteRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.ID != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.ID))
+	}
+	return i, nil
+}
+
+func (m *MemberPromoteResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MemberPromoteResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n39, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n39
 	}
 	if len(m.Members) > 0 {
 		for iNdEx := len(m.Members) - 1; iNdEx >= 0; iNdEx-- {
@@ -10515,16 +10778,14 @@ func (m *DefragmentResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n40, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n40
 	}
 	return len(dAtA) - i, nil
 }
@@ -10586,16 +10847,14 @@ func (m *MoveLeaderResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n41, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n41
 	}
 	return len(dAtA) - i, nil
 }
@@ -10699,9 +10958,15 @@ func (m *AlarmResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n42, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n42
 	}
 	if len(m.Alarms) > 0 {
 		for iNdEx := len(m.Alarms) - 1; iNdEx >= 0; iNdEx-- {
@@ -10779,9 +11044,15 @@ func (m *StatusResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n43, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n43
 	}
 	if m.RaftTerm != 0 {
 		i = encodeVarintRpc(dAtA, i, uint64(m.RaftTerm))
@@ -10822,7 +11093,42 @@ func (m *StatusResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0xa
 	}
-	return len(dAtA) - i, nil
+	if m.RaftAppliedIndex != 0 {
+		dAtA[i] = 0x38
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.RaftAppliedIndex))
+	}
+	if len(m.Errors) > 0 {
+		for _, s := range m.Errors {
+			dAtA[i] = 0x42
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if m.DbSizeInUse != 0 {
+		dAtA[i] = 0x48
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.DbSizeInUse))
+	}
+	if m.IsLearner {
+		dAtA[i] = 0x50
+		i++
+		if m.IsLearner {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	return i, nil
 }
 
 func (m *AuthEnableRequest) Marshal() (dAtA []byte, err error) {
@@ -10958,7 +11264,17 @@ func (m *AuthUserAddRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0xa
 	}
-	return len(dAtA) - i, nil
+	if m.Options != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Options.Size()))
+		n44, err := m.Options.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n44
+	}
+	return i, nil
 }
 
 func (m *AuthUserGetRequest) Marshal() (dAtA []byte, err error) {
@@ -11333,23 +11649,14 @@ func (m *AuthRoleGrantPermissionRequest) MarshalToSizedBuffer(dAtA []byte) (int,
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Perm != nil {
-		{
-			size, err := m.Perm.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0x12
-	}
-	if len(m.Name) > 0 {
-		i -= len(m.Name)
-		copy(dAtA[i:], m.Name)
-		i = encodeVarintRpc(dAtA, i, uint64(len(m.Name)))
-		i--
-		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Perm.Size()))
+		n45, err := m.Perm.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n45
 	}
 	return len(dAtA) - i, nil
 }
@@ -11427,16 +11734,14 @@ func (m *AuthEnableResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n46, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n46
 	}
 	return len(dAtA) - i, nil
 }
@@ -11466,16 +11771,14 @@ func (m *AuthDisableResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n47, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n47
 	}
 	return len(dAtA) - i, nil
 }
@@ -11500,9 +11803,15 @@ func (m *AuthenticateResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n48, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n48
 	}
 	if len(m.Token) > 0 {
 		i -= len(m.Token)
@@ -11551,16 +11860,14 @@ func (m *AuthUserAddResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n49, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n49
 	}
 	return len(dAtA) - i, nil
 }
@@ -11585,9 +11892,15 @@ func (m *AuthUserGetResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n50, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n50
 	}
 	if len(m.Roles) > 0 {
 		for iNdEx := len(m.Roles) - 1; iNdEx >= 0; iNdEx-- {
@@ -11638,16 +11951,14 @@ func (m *AuthUserDeleteResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n51, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n51
 	}
 	return len(dAtA) - i, nil
 }
@@ -11677,16 +11988,14 @@ func (m *AuthUserChangePasswordResponse) MarshalToSizedBuffer(dAtA []byte) (int,
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n52, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n52
 	}
 	return len(dAtA) - i, nil
 }
@@ -11716,16 +12025,14 @@ func (m *AuthUserGrantRoleResponse) MarshalToSizedBuffer(dAtA []byte) (int, erro
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n53, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n53
 	}
 	return len(dAtA) - i, nil
 }
@@ -11755,16 +12062,14 @@ func (m *AuthUserRevokeRoleResponse) MarshalToSizedBuffer(dAtA []byte) (int, err
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n54, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n54
 	}
 	return len(dAtA) - i, nil
 }
@@ -11794,16 +12099,14 @@ func (m *AuthRoleAddResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n55, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n55
 	}
 	return len(dAtA) - i, nil
 }
@@ -11828,9 +12131,15 @@ func (m *AuthRoleGetResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n56, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n56
 	}
 	if len(m.Perm) > 0 {
 		for iNdEx := len(m.Perm) - 1; iNdEx >= 0; iNdEx-- {
@@ -11881,9 +12190,15 @@ func (m *AuthRoleListResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n57, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n57
 	}
 	if len(m.Roles) > 0 {
 		for iNdEx := len(m.Roles) - 1; iNdEx >= 0; iNdEx-- {
@@ -11929,9 +12244,15 @@ func (m *AuthUserListResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Header != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n58, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n58
 	}
 	if len(m.Users) > 0 {
 		for iNdEx := len(m.Users) - 1; iNdEx >= 0; iNdEx-- {
@@ -11982,16 +12303,14 @@ func (m *AuthRoleDeleteResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n59, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n59
 	}
 	return len(dAtA) - i, nil
 }
@@ -12021,16 +12340,14 @@ func (m *AuthRoleGrantPermissionResponse) MarshalToSizedBuffer(dAtA []byte) (int
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n60, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n60
 	}
 	return len(dAtA) - i, nil
 }
@@ -12060,16 +12377,14 @@ func (m *AuthRoleRevokePermissionResponse) MarshalToSizedBuffer(dAtA []byte) (in
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Header != nil {
-		{
-			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintRpc(dAtA, i, uint64(size))
-		}
-		i--
 		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRpc(dAtA, i, uint64(m.Header.Size()))
+		n61, err := m.Header.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n61
 	}
 	return len(dAtA) - i, nil
 }
@@ -12725,9 +13040,6 @@ func (m *WatchRequest_CancelRequest) Size() (n int) {
 	return n
 }
 func (m *WatchRequest_ProgressRequest) Size() (n int) {
-	if m == nil {
-		return 0
-	}
 	var l int
 	_ = l
 	if m.ProgressRequest != nil {
@@ -12772,9 +13084,6 @@ func (m *WatchCreateRequest) Size() (n int) {
 	if m.Fragment {
 		n += 2
 	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
 	return n
 }
 
@@ -12802,6 +13111,12 @@ func (m *WatchProgressRequest) Size() (n int) {
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
+	return n
+}
+
+func (m *WatchProgressRequest) Size() (n int) {
+	var l int
+	_ = l
 	return n
 }
 
@@ -12917,6 +13232,40 @@ func (m *LeaseRevokeResponse) Size() (n int) {
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *LeaseCheckpoint) Size() (n int) {
+	var l int
+	_ = l
+	if m.ID != 0 {
+		n += 1 + sovRpc(uint64(m.ID))
+	}
+	if m.Remaining_TTL != 0 {
+		n += 1 + sovRpc(uint64(m.Remaining_TTL))
+	}
+	return n
+}
+
+func (m *LeaseCheckpointRequest) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Checkpoints) > 0 {
+		for _, e := range m.Checkpoints {
+			l = e.Size()
+			n += 1 + l + sovRpc(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *LeaseCheckpointResponse) Size() (n int) {
+	var l int
+	_ = l
+	if m.Header != nil {
+		l = m.Header.Size()
+		n += 1 + l + sovRpc(uint64(l))
 	}
 	return n
 }
@@ -13081,8 +13430,8 @@ func (m *Member) Size() (n int) {
 			n += 1 + l + sovRpc(uint64(l))
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
+	if m.IsLearner {
+		n += 2
 	}
 	return n
 }
@@ -13099,8 +13448,8 @@ func (m *MemberAddRequest) Size() (n int) {
 			n += 1 + l + sovRpc(uint64(l))
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
+	if m.IsLearner {
+		n += 2
 	}
 	return n
 }
@@ -13241,6 +13590,31 @@ func (m *MemberListResponse) Size() (n int) {
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *MemberPromoteRequest) Size() (n int) {
+	var l int
+	_ = l
+	if m.ID != 0 {
+		n += 1 + sovRpc(uint64(m.ID))
+	}
+	return n
+}
+
+func (m *MemberPromoteResponse) Size() (n int) {
+	var l int
+	_ = l
+	if m.Header != nil {
+		l = m.Header.Size()
+		n += 1 + l + sovRpc(uint64(l))
+	}
+	if len(m.Members) > 0 {
+		for _, e := range m.Members {
+			l = e.Size()
+			n += 1 + l + sovRpc(uint64(l))
+		}
 	}
 	return n
 }
@@ -13403,8 +13777,20 @@ func (m *StatusResponse) Size() (n int) {
 	if m.RaftTerm != 0 {
 		n += 1 + sovRpc(uint64(m.RaftTerm))
 	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
+	if m.RaftAppliedIndex != 0 {
+		n += 1 + sovRpc(uint64(m.RaftAppliedIndex))
+	}
+	if len(m.Errors) > 0 {
+		for _, s := range m.Errors {
+			l = len(s)
+			n += 1 + l + sovRpc(uint64(l))
+		}
+	}
+	if m.DbSizeInUse != 0 {
+		n += 1 + sovRpc(uint64(m.DbSizeInUse))
+	}
+	if m.IsLearner {
+		n += 2
 	}
 	return n
 }
@@ -13467,8 +13853,9 @@ func (m *AuthUserAddRequest) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovRpc(uint64(l))
 	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
+	if m.Options != nil {
+		l = m.Options.Size()
+		n += 1 + l + sovRpc(uint64(l))
 	}
 	return n
 }
@@ -17028,7 +17415,7 @@ func (m *WatchRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= int(b&0x7F) << shift
+				msglen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -17037,9 +17424,6 @@ func (m *WatchRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRpc
 			}
 			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthRpc
-			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -17313,7 +17697,7 @@ func (m *WatchCreateRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.WatchId |= int64(b&0x7F) << shift
+				m.WatchId |= (int64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -17332,7 +17716,7 @@ func (m *WatchCreateRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= int(b&0x7F) << shift
+				v |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -17481,6 +17865,56 @@ func (m *WatchProgressRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *WatchProgressRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRpc
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: WatchProgressRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: WatchProgressRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRpc(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
 			iNdEx += skippy
 		}
 	}
@@ -17679,7 +18113,7 @@ func (m *WatchResponse) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= int(b&0x7F) << shift
+				v |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -18159,7 +18593,7 @@ func (m *LeaseRevokeResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *LeaseKeepAliveRequest) Unmarshal(dAtA []byte) error {
+func (m *LeaseCheckpoint) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -18175,6 +18609,258 @@ func (m *LeaseKeepAliveRequest) Unmarshal(dAtA []byte) error {
 			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: LeaseCheckpoint: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: LeaseCheckpoint: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ID", wireType)
+			}
+			m.ID = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ID |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Remaining_TTL", wireType)
+			}
+			m.Remaining_TTL = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Remaining_TTL |= (int64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRpc(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *LeaseCheckpointRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRpc
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: LeaseCheckpointRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: LeaseCheckpointRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Checkpoints", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRpc
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Checkpoints = append(m.Checkpoints, &LeaseCheckpoint{})
+			if err := m.Checkpoints[len(m.Checkpoints)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRpc(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *LeaseCheckpointResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRpc
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: LeaseCheckpointResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: LeaseCheckpointResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Header", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRpc
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Header == nil {
+				m.Header = &ResponseHeader{}
+			}
+			if err := m.Header.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRpc(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *LeaseKeepAliveRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRpc
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -18202,7 +18888,7 @@ func (m *LeaseKeepAliveRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.ID |= int64(b&0x7F) << shift
+				m.ID |= (int64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -19027,6 +19713,26 @@ func (m *Member) Unmarshal(dAtA []byte) error {
 			}
 			m.ClientURLs = append(m.ClientURLs, string(dAtA[iNdEx:postIndex]))
 			iNdEx = postIndex
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field IsLearner", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.IsLearner = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRpc(dAtA[iNdEx:])
@@ -19113,6 +19819,26 @@ func (m *MemberAddRequest) Unmarshal(dAtA []byte) error {
 			}
 			m.PeerURLs = append(m.PeerURLs, string(dAtA[iNdEx:postIndex]))
 			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field IsLearner", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.IsLearner = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRpc(dAtA[iNdEx:])
@@ -19341,7 +20067,7 @@ func (m *MemberRemoveRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.ID |= uint64(b&0x7F) << shift
+				m.ID |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -19355,13 +20081,9 @@ func (m *MemberRemoveRequest) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthRpc
 			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthRpc
-			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -19386,7 +20108,7 @@ func (m *MemberRemoveResponse) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= uint64(b&0x7F) << shift
+			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -19414,7 +20136,7 @@ func (m *MemberRemoveResponse) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= int(b&0x7F) << shift
+				msglen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -19423,9 +20145,6 @@ func (m *MemberRemoveResponse) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRpc
 			}
 			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthRpc
-			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -19450,7 +20169,7 @@ func (m *MemberRemoveResponse) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= int(b&0x7F) << shift
+				msglen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -19459,9 +20178,6 @@ func (m *MemberRemoveResponse) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRpc
 			}
 			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthRpc
-			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -19479,13 +20195,9 @@ func (m *MemberRemoveResponse) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthRpc
 			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthRpc
-			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -19510,7 +20222,7 @@ func (m *MemberUpdateRequest) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= uint64(b&0x7F) << shift
+			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -19557,7 +20269,7 @@ func (m *MemberUpdateRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				stringLen |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -19567,9 +20279,6 @@ func (m *MemberUpdateRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRpc
 			}
 			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthRpc
-			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -19805,6 +20514,203 @@ func (m *MemberListResponse) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: MemberListResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Header", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRpc
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Header == nil {
+				m.Header = &ResponseHeader{}
+			}
+			if err := m.Header.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Members", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRpc
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Members = append(m.Members, &Member{})
+			if err := m.Members[len(m.Members)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRpc(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MemberPromoteRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRpc
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MemberPromoteRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MemberPromoteRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ID", wireType)
+			}
+			m.ID = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ID |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRpc(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthRpc
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MemberPromoteResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRpc
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MemberPromoteResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MemberPromoteResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -20763,6 +21669,93 @@ func (m *StatusResponse) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 7:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RaftAppliedIndex", wireType)
+			}
+			m.RaftAppliedIndex = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.RaftAppliedIndex |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Errors", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRpc
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Errors = append(m.Errors, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 9:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DbSizeInUse", wireType)
+			}
+			m.DbSizeInUse = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.DbSizeInUse |= (int64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 10:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field IsLearner", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.IsLearner = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRpc(dAtA[iNdEx:])
@@ -21106,6 +22099,39 @@ func (m *AuthUserAddRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.Password = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Options", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRpc
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Options == nil {
+				m.Options = &authpb.UserAddOptions{}
+			}
+			if err := m.Options.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -22211,7 +23237,7 @@ func (m *AuthRoleRevokePermissionRequest) Unmarshal(dAtA []byte) error {
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Key", wireType)
 			}
-			var stringLen uint64
+			var byteLen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowRpc
@@ -22221,29 +23247,28 @@ func (m *AuthRoleRevokePermissionRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				byteLen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
+			if byteLen < 0 {
 				return ErrInvalidLengthRpc
 			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthRpc
-			}
+			postIndex := iNdEx + byteLen
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Key = string(dAtA[iNdEx:postIndex])
+			m.Key = append(m.Key[:0], dAtA[iNdEx:postIndex]...)
+			if m.Key == nil {
+				m.Key = []byte{}
+			}
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field RangeEnd", wireType)
 			}
-			var stringLen uint64
+			var byteLen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowRpc
@@ -22253,23 +23278,22 @@ func (m *AuthRoleRevokePermissionRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				byteLen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
+			if byteLen < 0 {
 				return ErrInvalidLengthRpc
 			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthRpc
-			}
+			postIndex := iNdEx + byteLen
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.RangeEnd = string(dAtA[iNdEx:postIndex])
+			m.RangeEnd = append(m.RangeEnd[:0], dAtA[iNdEx:postIndex]...)
+			if m.RangeEnd == nil {
+				m.RangeEnd = []byte{}
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -24008,3 +25032,255 @@ var (
 	ErrInvalidLengthRpc = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowRpc   = fmt.Errorf("proto: integer overflow")
 )
+
+func init() { proto.RegisterFile("rpc.proto", fileDescriptorRpc) }
+
+var fileDescriptorRpc = []byte{
+	// 3928 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x5b, 0x5b, 0x6f, 0x23, 0xc9,
+	0x75, 0x56, 0x93, 0xe2, 0xed, 0xf0, 0x22, 0xaa, 0x74, 0x19, 0x0e, 0x67, 0x46, 0xa3, 0xad, 0xd9,
+	0xd9, 0xd5, 0xce, 0xec, 0x8a, 0x6b, 0xd9, 0x4e, 0x80, 0x49, 0xe2, 0x58, 0x23, 0x71, 0x67, 0xb4,
+	0xd2, 0x88, 0xda, 0x16, 0x67, 0xf6, 0x02, 0x23, 0x42, 0x8b, 0x2c, 0x49, 0x1d, 0x91, 0xdd, 0x74,
+	0x77, 0x93, 0x23, 0x6d, 0x2e, 0x0e, 0x0c, 0xc7, 0x40, 0xf2, 0x68, 0x03, 0x41, 0xf2, 0x90, 0xa7,
+	0x20, 0x08, 0xfc, 0x90, 0xe7, 0x00, 0xf9, 0x05, 0x79, 0xca, 0x05, 0xf9, 0x03, 0xc1, 0xc6, 0x2f,
+	0xc9, 0xaf, 0x30, 0xea, 0xd6, 0x5d, 0x7d, 0xa3, 0xc6, 0xa6, 0x77, 0x5f, 0xa4, 0xae, 0x53, 0xa7,
+	0xce, 0x39, 0x75, 0xaa, 0xea, 0x9c, 0xd3, 0x5f, 0x17, 0xa1, 0xe4, 0x8c, 0x7a, 0x9b, 0x23, 0xc7,
+	0xf6, 0x6c, 0x54, 0x21, 0x5e, 0xaf, 0xef, 0x12, 0x67, 0x42, 0x9c, 0xd1, 0x69, 0x73, 0xf9, 0xdc,
+	0x3e, 0xb7, 0x59, 0x47, 0x8b, 0x3e, 0x71, 0x9e, 0xe6, 0x6d, 0xca, 0xd3, 0x1a, 0x4e, 0x7a, 0x3d,
+	0xf6, 0x67, 0x74, 0xda, 0xba, 0x9c, 0x88, 0xae, 0x3b, 0xac, 0xcb, 0x18, 0x7b, 0x17, 0xec, 0xcf,
+	0xe8, 0x94, 0xfd, 0x13, 0x9d, 0x77, 0xcf, 0x6d, 0xfb, 0x7c, 0x40, 0x5a, 0xc6, 0xc8, 0x6c, 0x19,
+	0x96, 0x65, 0x7b, 0x86, 0x67, 0xda, 0x96, 0xcb, 0x7b, 0xf1, 0x5f, 0x6a, 0x50, 0xd3, 0x89, 0x3b,
+	0xb2, 0x2d, 0x97, 0x3c, 0x27, 0x46, 0x9f, 0x38, 0xe8, 0x1e, 0x40, 0x6f, 0x30, 0x76, 0x3d, 0xe2,
+	0x9c, 0x98, 0xfd, 0x86, 0xb6, 0xae, 0x6d, 0xcc, 0xeb, 0x25, 0x41, 0xd9, 0xeb, 0xa3, 0x3b, 0x50,
+	0x1a, 0x92, 0xe1, 0x29, 0xef, 0xcd, 0xb0, 0xde, 0x22, 0x27, 0xec, 0xf5, 0x51, 0x13, 0x8a, 0x0e,
+	0x99, 0x98, 0xae, 0x69, 0x5b, 0x8d, 0xec, 0xba, 0xb6, 0x91, 0xd5, 0xfd, 0x36, 0x1d, 0xe8, 0x18,
+	0x67, 0xde, 0x89, 0x47, 0x9c, 0x61, 0x63, 0x9e, 0x0f, 0xa4, 0x84, 0x2e, 0x71, 0x86, 0xf8, 0x27,
+	0x39, 0xa8, 0xe8, 0x86, 0x75, 0x4e, 0x74, 0xf2, 0xc3, 0x31, 0x71, 0x3d, 0x54, 0x87, 0xec, 0x25,
+	0xb9, 0x66, 0xea, 0x2b, 0x3a, 0x7d, 0xe4, 0xe3, 0xad, 0x73, 0x72, 0x42, 0x2c, 0xae, 0xb8, 0x42,
+	0xc7, 0x5b, 0xe7, 0xa4, 0x6d, 0xf5, 0xd1, 0x32, 0xe4, 0x06, 0xe6, 0xd0, 0xf4, 0x84, 0x56, 0xde,
+	0x08, 0x99, 0x33, 0x1f, 0x31, 0x67, 0x07, 0xc0, 0xb5, 0x1d, 0xef, 0xc4, 0x76, 0xfa, 0xc4, 0x69,
+	0xe4, 0xd6, 0xb5, 0x8d, 0xda, 0xd6, 0xdb, 0x9b, 0xea, 0x42, 0x6c, 0xaa, 0x06, 0x6d, 0x1e, 0xdb,
+	0x8e, 0xd7, 0xa1, 0xbc, 0x7a, 0xc9, 0x95, 0x8f, 0xe8, 0x23, 0x28, 0x33, 0x21, 0x9e, 0xe1, 0x9c,
+	0x13, 0xaf, 0x91, 0x67, 0x52, 0x1e, 0xde, 0x20, 0xa5, 0xcb, 0x98, 0x75, 0xa6, 0x9e, 0x3f, 0x23,
+	0x0c, 0x15, 0x97, 0x38, 0xa6, 0x31, 0x30, 0xbf, 0x34, 0x4e, 0x07, 0xa4, 0x51, 0x58, 0xd7, 0x36,
+	0x8a, 0x7a, 0x88, 0x46, 0xe7, 0x7f, 0x49, 0xae, 0xdd, 0x13, 0xdb, 0x1a, 0x5c, 0x37, 0x8a, 0x8c,
+	0xa1, 0x48, 0x09, 0x1d, 0x6b, 0x70, 0xcd, 0x16, 0xcd, 0x1e, 0x5b, 0x1e, 0xef, 0x2d, 0xb1, 0xde,
+	0x12, 0xa3, 0xb0, 0xee, 0x0d, 0xa8, 0x0f, 0x4d, 0xeb, 0x64, 0x68, 0xf7, 0x4f, 0x7c, 0x87, 0x00,
+	0x73, 0x48, 0x6d, 0x68, 0x5a, 0x2f, 0xec, 0xbe, 0x2e, 0xdd, 0x42, 0x39, 0x8d, 0xab, 0x30, 0x67,
+	0x59, 0x70, 0x1a, 0x57, 0x2a, 0xe7, 0x26, 0x2c, 0x51, 0x99, 0x3d, 0x87, 0x18, 0x1e, 0x09, 0x98,
+	0x2b, 0x8c, 0x79, 0x71, 0x68, 0x5a, 0x3b, 0xac, 0x27, 0xc4, 0x6f, 0x5c, 0xc5, 0xf8, 0xab, 0x82,
+	0xdf, 0xb8, 0x0a, 0xf3, 0xe3, 0x4d, 0x28, 0xf9, 0x3e, 0x47, 0x45, 0x98, 0x3f, 0xec, 0x1c, 0xb6,
+	0xeb, 0x73, 0x08, 0x20, 0xbf, 0x7d, 0xbc, 0xd3, 0x3e, 0xdc, 0xad, 0x6b, 0xa8, 0x0c, 0x85, 0xdd,
+	0x36, 0x6f, 0x64, 0xf0, 0x53, 0x80, 0xc0, 0xbb, 0xa8, 0x00, 0xd9, 0xfd, 0xf6, 0xe7, 0xf5, 0x39,
+	0xca, 0xf3, 0xaa, 0xad, 0x1f, 0xef, 0x75, 0x0e, 0xeb, 0x1a, 0x1d, 0xbc, 0xa3, 0xb7, 0xb7, 0xbb,
+	0xed, 0x7a, 0x86, 0x72, 0xbc, 0xe8, 0xec, 0xd6, 0xb3, 0xa8, 0x04, 0xb9, 0x57, 0xdb, 0x07, 0x2f,
+	0xdb, 0xf5, 0x79, 0xfc, 0x73, 0x0d, 0xaa, 0x62, 0xbd, 0xf8, 0x99, 0x40, 0xdf, 0x81, 0xfc, 0x05,
+	0x3b, 0x17, 0x6c, 0x2b, 0x96, 0xb7, 0xee, 0x46, 0x16, 0x37, 0x74, 0x76, 0x74, 0xc1, 0x8b, 0x30,
+	0x64, 0x2f, 0x27, 0x6e, 0x23, 0xb3, 0x9e, 0xdd, 0x28, 0x6f, 0xd5, 0x37, 0xf9, 0x81, 0xdd, 0xdc,
+	0x27, 0xd7, 0xaf, 0x8c, 0xc1, 0x98, 0xe8, 0xb4, 0x13, 0x21, 0x98, 0x1f, 0xda, 0x0e, 0x61, 0x3b,
+	0xb6, 0xa8, 0xb3, 0x67, 0xba, 0x8d, 0xd9, 0xa2, 0x89, 0xdd, 0xca, 0x1b, 0xf8, 0x17, 0x1a, 0xc0,
+	0xd1, 0xd8, 0x4b, 0x3f, 0x1a, 0xcb, 0x90, 0x9b, 0x50, 0xc1, 0xe2, 0x58, 0xf0, 0x06, 0x3b, 0x13,
+	0xc4, 0x70, 0x89, 0x7f, 0x26, 0x68, 0x03, 0xdd, 0x82, 0xc2, 0xc8, 0x21, 0x93, 0x93, 0xcb, 0x09,
+	0x53, 0x52, 0xd4, 0xf3, 0xb4, 0xb9, 0x3f, 0x41, 0x6f, 0x41, 0xc5, 0x3c, 0xb7, 0x6c, 0x87, 0x9c,
+	0x70, 0x59, 0x39, 0xd6, 0x5b, 0xe6, 0x34, 0x66, 0xb7, 0xc2, 0xc2, 0x05, 0xe7, 0x55, 0x96, 0x03,
+	0x4a, 0xc2, 0x16, 0x94, 0x99, 0xa9, 0x33, 0xb9, 0xef, 0xbd, 0xc0, 0xc6, 0x0c, 0x1b, 0x16, 0x77,
+	0xa1, 0xb0, 0x1a, 0xff, 0x00, 0xd0, 0x2e, 0x19, 0x10, 0x8f, 0xcc, 0x12, 0x3d, 0x14, 0x9f, 0x64,
+	0x55, 0x9f, 0xe0, 0x9f, 0x69, 0xb0, 0x14, 0x12, 0x3f, 0xd3, 0xb4, 0x1a, 0x50, 0xe8, 0x33, 0x61,
+	0xdc, 0x82, 0xac, 0x2e, 0x9b, 0xe8, 0x31, 0x14, 0x85, 0x01, 0x6e, 0x23, 0x9b, 0xb2, 0x69, 0x0a,
+	0xdc, 0x26, 0x17, 0xff, 0x22, 0x03, 0x25, 0x31, 0xd1, 0xce, 0x08, 0x6d, 0x43, 0xd5, 0xe1, 0x8d,
+	0x13, 0x36, 0x1f, 0x61, 0x51, 0x33, 0x3d, 0x08, 0x3d, 0x9f, 0xd3, 0x2b, 0x62, 0x08, 0x23, 0xa3,
+	0xdf, 0x83, 0xb2, 0x14, 0x31, 0x1a, 0x7b, 0xc2, 0xe5, 0x8d, 0xb0, 0x80, 0x60, 0xff, 0x3d, 0x9f,
+	0xd3, 0x41, 0xb0, 0x1f, 0x8d, 0x3d, 0xd4, 0x85, 0x65, 0x39, 0x98, 0xcf, 0x46, 0x98, 0x91, 0x65,
+	0x52, 0xd6, 0xc3, 0x52, 0xe2, 0x4b, 0xf5, 0x7c, 0x4e, 0x47, 0x62, 0xbc, 0xd2, 0xa9, 0x9a, 0xe4,
+	0x5d, 0xf1, 0xe0, 0x1d, 0x33, 0xa9, 0x7b, 0x65, 0xc5, 0x4d, 0xea, 0x5e, 0x59, 0x4f, 0x4b, 0x50,
+	0x10, 0x2d, 0xfc, 0x2f, 0x19, 0x00, 0xb9, 0x1a, 0x9d, 0x11, 0xda, 0x85, 0x9a, 0x23, 0x5a, 0x21,
+	0x6f, 0xdd, 0x49, 0xf4, 0x96, 0x58, 0xc4, 0x39, 0xbd, 0x2a, 0x07, 0x71, 0xe3, 0xbe, 0x07, 0x15,
+	0x5f, 0x4a, 0xe0, 0xb0, 0xdb, 0x09, 0x0e, 0xf3, 0x25, 0x94, 0xe5, 0x00, 0xea, 0xb2, 0x4f, 0x61,
+	0xc5, 0x1f, 0x9f, 0xe0, 0xb3, 0xb7, 0xa6, 0xf8, 0xcc, 0x17, 0xb8, 0x24, 0x25, 0xa8, 0x5e, 0x53,
+	0x0d, 0x0b, 0xdc, 0x76, 0x3b, 0xc1, 0x6d, 0x71, 0xc3, 0xa8, 0xe3, 0x80, 0xe6, 0x4b, 0xde, 0xc4,
+	0xff, 0x97, 0x85, 0xc2, 0x8e, 0x3d, 0x1c, 0x19, 0x0e, 0x5d, 0x8d, 0xbc, 0x43, 0xdc, 0xf1, 0xc0,
+	0x63, 0xee, 0xaa, 0x6d, 0x3d, 0x08, 0x4b, 0x14, 0x6c, 0xf2, 0xbf, 0xce, 0x58, 0x75, 0x31, 0x84,
+	0x0e, 0x16, 0xe9, 0x31, 0xf3, 0x06, 0x83, 0x45, 0x72, 0x14, 0x43, 0xe4, 0x41, 0xce, 0x06, 0x07,
+	0xb9, 0x09, 0x85, 0x09, 0x71, 0x82, 0x94, 0xfe, 0x7c, 0x4e, 0x97, 0x04, 0xf4, 0x1e, 0x2c, 0x44,
+	0xd3, 0x4b, 0x4e, 0xf0, 0xd4, 0x7a, 0xe1, 0x6c, 0xf4, 0x00, 0x2a, 0xa1, 0x1c, 0x97, 0x17, 0x7c,
+	0xe5, 0xa1, 0x92, 0xe2, 0x56, 0x65, 0x5c, 0xa5, 0xf9, 0xb8, 0xf2, 0x7c, 0x4e, 0x46, 0xd6, 0x55,
+	0x19, 0x59, 0x8b, 0x62, 0x94, 0x88, 0xad, 0xa1, 0x20, 0xf3, 0xfd, 0x70, 0x90, 0xc1, 0xdf, 0x87,
+	0x6a, 0xc8, 0x41, 0x34, 0xef, 0xb4, 0x3f, 0x79, 0xb9, 0x7d, 0xc0, 0x93, 0xd4, 0x33, 0x96, 0x97,
+	0xf4, 0xba, 0x46, 0x73, 0xdd, 0x41, 0xfb, 0xf8, 0xb8, 0x9e, 0x41, 0x55, 0x28, 0x1d, 0x76, 0xba,
+	0x27, 0x9c, 0x2b, 0x8b, 0x9f, 0xf9, 0x12, 0x44, 0x92, 0x53, 0x72, 0xdb, 0x9c, 0x92, 0xdb, 0x34,
+	0x99, 0xdb, 0x32, 0x41, 0x6e, 0x63, 0x69, 0xee, 0xa0, 0xbd, 0x7d, 0xdc, 0xae, 0xcf, 0x3f, 0xad,
+	0x41, 0x85, 0xfb, 0xf7, 0x64, 0x6c, 0xd1, 0x54, 0xfb, 0x0f, 0x1a, 0x40, 0x70, 0x9a, 0x50, 0x0b,
+	0x0a, 0x3d, 0xae, 0xa7, 0xa1, 0xb1, 0x60, 0xb4, 0x92, 0xb8, 0x64, 0xba, 0xe4, 0x42, 0xdf, 0x82,
+	0x82, 0x3b, 0xee, 0xf5, 0x88, 0x2b, 0x53, 0xde, 0xad, 0x68, 0x3c, 0x14, 0xd1, 0x4a, 0x97, 0x7c,
+	0x74, 0xc8, 0x99, 0x61, 0x0e, 0xc6, 0x2c, 0x01, 0x4e, 0x1f, 0x22, 0xf8, 0xf0, 0xdf, 0x69, 0x50,
+	0x56, 0x36, 0xef, 0x6f, 0x18, 0x84, 0xef, 0x42, 0x89, 0xd9, 0x40, 0xfa, 0x22, 0x0c, 0x17, 0xf5,
+	0x80, 0x80, 0x7e, 0x07, 0x4a, 0xf2, 0x04, 0xc8, 0x48, 0xdc, 0x48, 0x16, 0xdb, 0x19, 0xe9, 0x01,
+	0x2b, 0xde, 0x87, 0x45, 0xe6, 0x95, 0x1e, 0x2d, 0xae, 0xa5, 0x1f, 0xd5, 0xf2, 0x53, 0x8b, 0x94,
+	0x9f, 0x4d, 0x28, 0x8e, 0x2e, 0xae, 0x5d, 0xb3, 0x67, 0x0c, 0x84, 0x15, 0x7e, 0x1b, 0x7f, 0x0c,
+	0x48, 0x15, 0x36, 0xcb, 0x74, 0x71, 0x15, 0xca, 0xcf, 0x0d, 0xf7, 0x42, 0x98, 0x84, 0x1f, 0x43,
+	0x95, 0x36, 0xf7, 0x5f, 0xbd, 0x81, 0x8d, 0xec, 0xe5, 0x40, 0x72, 0xcf, 0xe4, 0x73, 0x04, 0xf3,
+	0x17, 0x86, 0x7b, 0xc1, 0x26, 0x5a, 0xd5, 0xd9, 0x33, 0x7a, 0x0f, 0xea, 0x3d, 0x3e, 0xc9, 0x93,
+	0xc8, 0x2b, 0xc3, 0x82, 0xa0, 0xfb, 0x95, 0xe0, 0x67, 0x50, 0xe1, 0x73, 0xf8, 0x6d, 0x1b, 0x81,
+	0x17, 0x61, 0xe1, 0xd8, 0x32, 0x46, 0xee, 0x85, 0x2d, 0xb3, 0x1b, 0x9d, 0x74, 0x3d, 0xa0, 0xcd,
+	0xa4, 0xf1, 0x5d, 0x58, 0x70, 0xc8, 0xd0, 0x30, 0x2d, 0xd3, 0x3a, 0x3f, 0x39, 0xbd, 0xf6, 0x88,
+	0x2b, 0x5e, 0x98, 0x6a, 0x3e, 0xf9, 0x29, 0xa5, 0x52, 0xd3, 0x4e, 0x07, 0xf6, 0xa9, 0x08, 0x73,
+	0xec, 0x19, 0xff, 0x34, 0x03, 0x95, 0x4f, 0x0d, 0xaf, 0x27, 0x97, 0x0e, 0xed, 0x41, 0xcd, 0x0f,
+	0x6e, 0x8c, 0x22, 0x6c, 0x89, 0xa4, 0x58, 0x36, 0x46, 0x96, 0xd2, 0x32, 0x3b, 0x56, 0x7b, 0x2a,
+	0x81, 0x89, 0x32, 0xac, 0x1e, 0x19, 0xf8, 0xa2, 0x32, 0xe9, 0xa2, 0x18, 0xa3, 0x2a, 0x4a, 0x25,
+	0xa0, 0x0e, 0xd4, 0x47, 0x8e, 0x7d, 0xee, 0x10, 0xd7, 0xf5, 0x85, 0xf1, 0x34, 0x86, 0x13, 0x84,
+	0x1d, 0x09, 0xd6, 0x40, 0xdc, 0xc2, 0x28, 0x4c, 0x7a, 0xba, 0x10, 0xd4, 0x33, 0x3c, 0x38, 0xfd,
+	0x57, 0x06, 0x50, 0x7c, 0x52, 0xbf, 0x6e, 0x89, 0xf7, 0x10, 0x6a, 0xae, 0x67, 0x38, 0xb1, 0xcd,
+	0x56, 0x65, 0x54, 0x3f, 0xe2, 0xbf, 0x0b, 0xbe, 0x41, 0x27, 0x96, 0xed, 0x99, 0x67, 0xd7, 0xa2,
+	0x4a, 0xae, 0x49, 0xf2, 0x21, 0xa3, 0xa2, 0x36, 0x14, 0xce, 0xcc, 0x81, 0x47, 0x1c, 0xb7, 0x91,
+	0x5b, 0xcf, 0x6e, 0xd4, 0xb6, 0x1e, 0xdf, 0xb4, 0x0c, 0x9b, 0x1f, 0x31, 0xfe, 0xee, 0xf5, 0x88,
+	0xe8, 0x72, 0xac, 0x5a, 0x79, 0xe6, 0x43, 0xd5, 0xf8, 0x6d, 0x28, 0xbe, 0xa6, 0x22, 0xe8, 0x5b,
+	0x76, 0x81, 0x17, 0x8b, 0xac, 0xcd, 0x5f, 0xb2, 0xcf, 0x1c, 0xe3, 0x7c, 0x48, 0x2c, 0x4f, 0xbe,
+	0x07, 0xca, 0x36, 0x7e, 0x08, 0x10, 0xa8, 0xa1, 0x21, 0xff, 0xb0, 0x73, 0xf4, 0xb2, 0x5b, 0x9f,
+	0x43, 0x15, 0x28, 0x1e, 0x76, 0x76, 0xdb, 0x07, 0x6d, 0x9a, 0x1f, 0x70, 0x4b, 0xba, 0x34, 0xb4,
+	0x96, 0xaa, 0x4e, 0x2d, 0xa4, 0x13, 0xaf, 0xc2, 0x72, 0xd2, 0x02, 0xd2, 0x5a, 0xb4, 0x2a, 0x76,
+	0xe9, 0x4c, 0x47, 0x45, 0x55, 0x9d, 0x09, 0x4f, 0xb7, 0x01, 0x05, 0xbe, 0x7b, 0xfb, 0xa2, 0x38,
+	0x97, 0x4d, 0xea, 0x08, 0xbe, 0x19, 0x49, 0x5f, 0xac, 0x92, 0xdf, 0x4e, 0x0c, 0x2f, 0xb9, 0xc4,
+	0xf0, 0x82, 0x1e, 0x40, 0xd5, 0x3f, 0x0d, 0x86, 0x2b, 0x6a, 0x81, 0x92, 0x5e, 0x91, 0x1b, 0x9d,
+	0xd2, 0x42, 0x4e, 0x2f, 0x84, 0x9d, 0x8e, 0x1e, 0x42, 0x9e, 0x4c, 0x88, 0xe5, 0xb9, 0x8d, 0x32,
+	0xcb, 0x18, 0x55, 0x59, 0xbb, 0xb7, 0x29, 0x55, 0x17, 0x9d, 0xf8, 0xbb, 0xb0, 0xc8, 0xde, 0x91,
+	0x9e, 0x39, 0x86, 0xa5, 0xbe, 0xcc, 0x75, 0xbb, 0x07, 0xc2, 0xdd, 0xf4, 0x11, 0xd5, 0x20, 0xb3,
+	0xb7, 0x2b, 0x9c, 0x90, 0xd9, 0xdb, 0xc5, 0x3f, 0xd6, 0x00, 0xa9, 0xe3, 0x66, 0xf2, 0x73, 0x44,
+	0xb8, 0x54, 0x9f, 0x0d, 0xd4, 0x2f, 0x43, 0x8e, 0x38, 0x8e, 0xed, 0x30, 0x8f, 0x96, 0x74, 0xde,
+	0xc0, 0x6f, 0x0b, 0x1b, 0x74, 0x32, 0xb1, 0x2f, 0xfd, 0x33, 0xc8, 0xa5, 0x69, 0xbe, 0xa9, 0xfb,
+	0xb0, 0x14, 0xe2, 0x9a, 0x29, 0x73, 0x7d, 0x04, 0x0b, 0x4c, 0xd8, 0xce, 0x05, 0xe9, 0x5d, 0x8e,
+	0x6c, 0xd3, 0x8a, 0xe9, 0xa3, 0x2b, 0x17, 0x04, 0x58, 0x3a, 0x0f, 0x3e, 0xb1, 0x8a, 0x4f, 0xec,
+	0x76, 0x0f, 0xf0, 0xe7, 0xb0, 0x1a, 0x91, 0x23, 0xcd, 0xff, 0x43, 0x28, 0xf7, 0x7c, 0xa2, 0x2b,
+	0x6a, 0x9d, 0x7b, 0x61, 0xe3, 0xa2, 0x43, 0xd5, 0x11, 0xb8, 0x03, 0xb7, 0x62, 0xa2, 0x67, 0x9a,
+	0xf3, 0xbb, 0xb0, 0xc2, 0x04, 0xee, 0x13, 0x32, 0xda, 0x1e, 0x98, 0x93, 0x54, 0x4f, 0x8f, 0xc4,
+	0xa4, 0x14, 0xc6, 0xaf, 0x77, 0x5f, 0xe0, 0xdf, 0x17, 0x1a, 0xbb, 0xe6, 0x90, 0x74, 0xed, 0x83,
+	0x74, 0xdb, 0x68, 0x36, 0xbb, 0x24, 0xd7, 0xae, 0x28, 0x6b, 0xd8, 0x33, 0xfe, 0x47, 0x4d, 0xb8,
+	0x4a, 0x1d, 0xfe, 0x35, 0xef, 0xe4, 0x35, 0x80, 0x73, 0x7a, 0x64, 0x48, 0x9f, 0x76, 0x70, 0x44,
+	0x45, 0xa1, 0xf8, 0x76, 0xd2, 0xf8, 0x5d, 0x11, 0x76, 0x2e, 0x8b, 0x7d, 0xce, 0xfe, 0xf8, 0x51,
+	0xee, 0x1e, 0x94, 0x19, 0xe1, 0xd8, 0x33, 0xbc, 0xb1, 0x1b, 0x5b, 0x8c, 0x3f, 0x17, 0xdb, 0x5e,
+	0x0e, 0x9a, 0x69, 0x5e, 0xdf, 0x82, 0x3c, 0x7b, 0x99, 0x90, 0xa5, 0xf4, 0xed, 0x84, 0xfd, 0xc8,
+	0xed, 0xd0, 0x05, 0x23, 0xfe, 0xa9, 0x06, 0xf9, 0x17, 0x0c, 0x82, 0x55, 0x4c, 0x9b, 0x97, 0x6b,
+	0x61, 0x19, 0x43, 0x0e, 0x0c, 0x95, 0x74, 0xf6, 0xcc, 0x4a, 0x4f, 0x42, 0x9c, 0x97, 0xfa, 0x01,
+	0x2f, 0x71, 0x4b, 0xba, 0xdf, 0xa6, 0x3e, 0xeb, 0x0d, 0x4c, 0x62, 0x79, 0xac, 0x77, 0x9e, 0xf5,
+	0x2a, 0x14, 0x5a, 0x3d, 0x9b, 0xee, 0x01, 0x31, 0x1c, 0x4b, 0x80, 0xa6, 0x45, 0x3d, 0x20, 0xe0,
+	0x03, 0xa8, 0x73, 0x3b, 0xb6, 0xfb, 0x7d, 0xa5, 0xc0, 0xf4, 0xb5, 0x69, 0x11, 0x6d, 0x21, 0x69,
+	0x99, 0xa8, 0xb4, 0x7f, 0xd2, 0x60, 0x51, 0x11, 0x37, 0x93, 0x57, 0xdf, 0x87, 0x3c, 0x07, 0xa9,
+	0x45, 0xa5, 0xb3, 0x1c, 0x1e, 0xc5, 0xd5, 0xe8, 0x82, 0x07, 0x6d, 0x42, 0x81, 0x3f, 0xc9, 0x77,
+	0x80, 0x64, 0x76, 0xc9, 0x84, 0x1f, 0xc2, 0x92, 0x20, 0x91, 0xa1, 0x9d, 0x74, 0x30, 0xd8, 0x62,
+	0xe0, 0x3f, 0x85, 0xe5, 0x30, 0xdb, 0x4c, 0x53, 0x52, 0x8c, 0xcc, 0xbc, 0x89, 0x91, 0xdb, 0xd2,
+	0xc8, 0x97, 0xa3, 0xbe, 0x52, 0x47, 0x45, 0x77, 0x8c, 0xba, 0x5e, 0x99, 0xf0, 0x7a, 0x05, 0x13,
+	0x90, 0x22, 0xbe, 0xd1, 0x09, 0x2c, 0xc9, 0xed, 0x70, 0x60, 0xba, 0x7e, 0xb9, 0xfe, 0x25, 0x20,
+	0x95, 0xf8, 0x8d, 0x1a, 0xf4, 0x8e, 0x74, 0xc7, 0x91, 0x63, 0x0f, 0xed, 0x54, 0x97, 0xe2, 0x3f,
+	0x83, 0x95, 0x08, 0xdf, 0x37, 0xed, 0xb7, 0x5d, 0x22, 0x8b, 0x15, 0xe9, 0xb7, 0x8f, 0x01, 0xa9,
+	0xc4, 0x99, 0xb2, 0x56, 0x0b, 0x16, 0x5f, 0xd8, 0x13, 0x1a, 0xfe, 0x28, 0x35, 0x38, 0xf7, 0x1c,
+	0x63, 0xf0, 0x5d, 0xe1, 0xb7, 0xa9, 0x72, 0x75, 0xc0, 0x4c, 0xca, 0xff, 0x43, 0x83, 0xca, 0xf6,
+	0xc0, 0x70, 0x86, 0x52, 0xf1, 0xf7, 0x20, 0xcf, 0xdf, 0x9c, 0x05, 0x58, 0xf5, 0x4e, 0x58, 0x8c,
+	0xca, 0xcb, 0x1b, 0xdb, 0xfc, 0x3d, 0x5b, 0x8c, 0xa2, 0x86, 0x8b, 0xef, 0x59, 0xbb, 0x91, 0xef,
+	0x5b, 0xbb, 0xe8, 0x03, 0xc8, 0x19, 0x74, 0x08, 0x4b, 0x33, 0xb5, 0x28, 0x66, 0xc1, 0xa4, 0xb1,
+	0xfa, 0x9e, 0x73, 0xe1, 0xef, 0x40, 0x59, 0xd1, 0x80, 0x0a, 0x90, 0x7d, 0xd6, 0x16, 0xc5, 0xf8,
+	0xf6, 0x4e, 0x77, 0xef, 0x15, 0x07, 0x6b, 0x6a, 0x00, 0xbb, 0x6d, 0xbf, 0x9d, 0xc1, 0x9f, 0x89,
+	0x51, 0x22, 0xa4, 0xab, 0xf6, 0x68, 0x69, 0xf6, 0x64, 0xde, 0xc8, 0x9e, 0x2b, 0xa8, 0x8a, 0xe9,
+	0xcf, 0x9a, 0xa2, 0x98, 0xbc, 0x94, 0x14, 0xa5, 0x18, 0xaf, 0x0b, 0x46, 0xbc, 0x00, 0x55, 0x91,
+	0xb4, 0xc4, 0xfe, 0xfb, 0xf7, 0x0c, 0xd4, 0x24, 0x65, 0x56, 0x50, 0x5d, 0xe2, 0x81, 0x3c, 0xc9,
+	0xf9, 0x68, 0xe0, 0x2a, 0xe4, 0xfb, 0xa7, 0xc7, 0xe6, 0x97, 0xf2, 0x03, 0x88, 0x68, 0x51, 0xfa,
+	0x80, 0xeb, 0xe1, 0x5f, 0x21, 0x45, 0x8b, 0x66, 0x23, 0xc7, 0x38, 0xf3, 0xf6, 0xac, 0x3e, 0xb9,
+	0x62, 0xb9, 0x6d, 0x5e, 0x0f, 0x08, 0x0c, 0x28, 0x11, 0x5f, 0x2b, 0xd9, 0x0b, 0x82, 0xf2, 0xf5,
+	0x12, 0x3d, 0x82, 0x3a, 0x7d, 0xde, 0x1e, 0x8d, 0x06, 0x26, 0xe9, 0x73, 0x01, 0x05, 0xc6, 0x13,
+	0xa3, 0x53, 0xed, 0xac, 0xa4, 0x76, 0x1b, 0x45, 0x16, 0x5d, 0x45, 0x0b, 0xad, 0x43, 0x99, 0xdb,
+	0xb7, 0x67, 0xbd, 0x74, 0x09, 0xfb, 0x84, 0x97, 0xd5, 0x55, 0x52, 0x38, 0x5b, 0x42, 0x34, 0x5b,
+	0x2e, 0xc1, 0xe2, 0xf6, 0xd8, 0xbb, 0x68, 0x5b, 0xc6, 0xe9, 0x40, 0x46, 0x22, 0x5a, 0xce, 0x50,
+	0xe2, 0xae, 0xe9, 0xaa, 0xd4, 0x36, 0x2c, 0x51, 0x2a, 0xb1, 0x3c, 0xb3, 0xa7, 0x64, 0x02, 0x59,
+	0x2b, 0x68, 0x91, 0x5a, 0xc1, 0x70, 0xdd, 0xd7, 0xb6, 0xd3, 0x17, 0xee, 0xf5, 0xdb, 0x78, 0xc2,
+	0x85, 0xbf, 0x74, 0x43, 0xf9, 0xfe, 0xd7, 0x94, 0x82, 0x3e, 0x84, 0x82, 0x3d, 0x62, 0x9f, 0xa4,
+	0x05, 0x6e, 0xb0, 0xba, 0xc9, 0x3f, 0x62, 0x6f, 0x0a, 0xc1, 0x1d, 0xde, 0xab, 0x4b, 0x36, 0xbc,
+	0x11, 0xe8, 0x7d, 0x46, 0xbc, 0x29, 0x7a, 0xf1, 0x63, 0x58, 0x91, 0x9c, 0x02, 0x26, 0x9f, 0xc2,
+	0xdc, 0x81, 0x7b, 0x92, 0x79, 0xe7, 0xc2, 0xb0, 0xce, 0xc9, 0x91, 0x30, 0xf1, 0x37, 0xf5, 0xcf,
+	0x53, 0x68, 0xf8, 0x76, 0xb2, 0x57, 0x37, 0x7b, 0xa0, 0x1a, 0x30, 0x76, 0xc5, 0x4e, 0x2f, 0xe9,
+	0xec, 0x99, 0xd2, 0x1c, 0x7b, 0xe0, 0xd7, 0x6a, 0xf4, 0x19, 0xef, 0xc0, 0x6d, 0x29, 0x43, 0xbc,
+	0x54, 0x85, 0x85, 0xc4, 0x0c, 0x4a, 0x12, 0x22, 0x1c, 0x46, 0x87, 0x4e, 0x5f, 0x28, 0x95, 0x33,
+	0xec, 0x5a, 0x26, 0x53, 0x53, 0x64, 0xae, 0xf0, 0x3d, 0x44, 0x0d, 0x53, 0xd3, 0xb1, 0x20, 0x53,
+	0x01, 0x2a, 0x59, 0x2c, 0x04, 0x25, 0xc7, 0x16, 0x22, 0x26, 0xfa, 0x07, 0xb0, 0xe6, 0x1b, 0x41,
+	0xfd, 0x76, 0x44, 0x9c, 0xa1, 0xe9, 0xba, 0x0a, 0xb0, 0x9a, 0x34, 0xf1, 0x77, 0x60, 0x7e, 0x44,
+	0x44, 0x24, 0x2c, 0x6f, 0x21, 0xb9, 0x89, 0x94, 0xc1, 0xac, 0x1f, 0xf7, 0xe1, 0xbe, 0x94, 0xce,
+	0x3d, 0x9a, 0x28, 0x3e, 0x6a, 0x94, 0x84, 0x9b, 0x32, 0x29, 0x70, 0x53, 0x36, 0x02, 0xf6, 0x7f,
+	0xcc, 0x1d, 0x29, 0x4f, 0xe3, 0x4c, 0x19, 0x6e, 0x9f, 0xfb, 0xd4, 0x3f, 0xc4, 0x33, 0x09, 0x3b,
+	0x85, 0xe5, 0xf0, 0xd9, 0x9f, 0x29, 0xf8, 0x2e, 0x43, 0xce, 0xb3, 0x2f, 0x89, 0x0c, 0xbd, 0xbc,
+	0x21, 0x0d, 0xf6, 0x03, 0xc3, 0x4c, 0x06, 0x1b, 0x81, 0x30, 0xb6, 0x25, 0x67, 0xb5, 0x97, 0xae,
+	0xa6, 0xac, 0x6c, 0x79, 0x03, 0x1f, 0xc2, 0x6a, 0x34, 0x4c, 0xcc, 0x64, 0xf2, 0x2b, 0xbe, 0x81,
+	0x93, 0x22, 0xc9, 0x4c, 0x72, 0x3f, 0x09, 0x82, 0x81, 0x12, 0x50, 0x66, 0x12, 0xa9, 0x43, 0x33,
+	0x29, 0xbe, 0xfc, 0x36, 0xf6, 0xab, 0x1f, 0x6e, 0x66, 0x12, 0xe6, 0x06, 0xc2, 0x66, 0x5f, 0xfe,
+	0x20, 0x46, 0x64, 0xa7, 0xc6, 0x08, 0x71, 0x48, 0x82, 0x28, 0xf6, 0x35, 0x6c, 0x3a, 0xa1, 0x23,
+	0x08, 0xa0, 0xb3, 0xea, 0xa0, 0x39, 0xc4, 0xd7, 0xc1, 0x1a, 0x72, 0x63, 0xab, 0x61, 0x77, 0xa6,
+	0xc5, 0xf8, 0x34, 0x88, 0x9d, 0xb1, 0xc8, 0x3c, 0x93, 0xe0, 0xcf, 0x60, 0x3d, 0x3d, 0x28, 0xcf,
+	0x22, 0xf9, 0x51, 0x0b, 0x4a, 0x7e, 0x19, 0xac, 0xdc, 0x22, 0x2a, 0x43, 0xe1, 0xb0, 0x73, 0x7c,
+	0xb4, 0xbd, 0xd3, 0xe6, 0xd7, 0x88, 0x76, 0x3a, 0xba, 0xfe, 0xf2, 0xa8, 0x5b, 0xcf, 0x6c, 0xfd,
+	0x32, 0x0b, 0x99, 0xfd, 0x57, 0xe8, 0x73, 0xc8, 0xf1, 0x6f, 0xea, 0x53, 0x2e, 0x52, 0x34, 0xa7,
+	0x5d, 0x1b, 0xc0, 0xb7, 0x7e, 0xfc, 0xdf, 0xbf, 0xfc, 0x79, 0x66, 0x11, 0x57, 0x5a, 0x93, 0x6f,
+	0xb7, 0x2e, 0x27, 0x2d, 0x96, 0x1b, 0x9e, 0x68, 0x8f, 0xd0, 0x27, 0x90, 0x3d, 0x1a, 0x7b, 0x28,
+	0xf5, 0x82, 0x45, 0x33, 0xfd, 0x26, 0x01, 0x5e, 0x61, 0x42, 0x17, 0x30, 0x08, 0xa1, 0xa3, 0xb1,
+	0x47, 0x45, 0xfe, 0x10, 0xca, 0xea, 0x3d, 0x80, 0x1b, 0x6f, 0x5d, 0x34, 0x6f, 0xbe, 0x63, 0x80,
+	0xef, 0x31, 0x55, 0xb7, 0x30, 0x12, 0xaa, 0xf8, 0x4d, 0x05, 0x75, 0x16, 0xdd, 0x2b, 0x0b, 0xa5,
+	0xde, 0xc9, 0x68, 0xa6, 0x5f, 0x3b, 0x88, 0xcd, 0xc2, 0xbb, 0xb2, 0xa8, 0xc8, 0x3f, 0x16, 0x37,
+	0x0e, 0x7a, 0x1e, 0xba, 0x9f, 0xf0, 0xc5, 0x59, 0xfd, 0xb6, 0xda, 0x5c, 0x4f, 0x67, 0x10, 0x4a,
+	0xee, 0x32, 0x25, 0xab, 0x78, 0x51, 0x28, 0xe9, 0xf9, 0x2c, 0x4f, 0xb4, 0x47, 0x5b, 0x3d, 0xc8,
+	0xb1, 0xef, 0x16, 0xe8, 0x0b, 0xf9, 0xd0, 0x4c, 0xf8, 0x80, 0x93, 0xb2, 0xd0, 0xa1, 0x2f, 0x1e,
+	0x78, 0x99, 0x29, 0xaa, 0xe1, 0x12, 0x55, 0xc4, 0xbe, 0x5a, 0x3c, 0xd1, 0x1e, 0x6d, 0x68, 0x1f,
+	0x6a, 0x5b, 0xff, 0x9c, 0x83, 0x1c, 0x03, 0xec, 0xd0, 0x25, 0x40, 0x80, 0xe1, 0x47, 0x67, 0x17,
+	0xfb, 0x2a, 0x10, 0x9d, 0x5d, 0x1c, 0xfe, 0xc7, 0x4d, 0xa6, 0x74, 0x19, 0x2f, 0x50, 0xa5, 0x0c,
+	0x07, 0x6c, 0x31, 0x68, 0x93, 0xfa, 0xf1, 0xaf, 0x34, 0x81, 0x57, 0xf2, 0xb3, 0x84, 0x92, 0xa4,
+	0x85, 0x80, 0xfc, 0xe8, 0x76, 0x48, 0x00, 0xf1, 0xf1, 0x77, 0x99, 0xc2, 0x16, 0xae, 0x07, 0x0a,
+	0x1d, 0xc6, 0xf1, 0x44, 0x7b, 0xf4, 0x45, 0x03, 0x2f, 0x09, 0x2f, 0x47, 0x7a, 0xd0, 0x8f, 0xa0,
+	0x16, 0x06, 0xaa, 0xd1, 0x83, 0x04, 0x5d, 0x51, 0xbc, 0xbb, 0xf9, 0xf6, 0x74, 0x26, 0x61, 0xd3,
+	0x1a, 0xb3, 0x49, 0x28, 0xe7, 0x9a, 0x2f, 0x09, 0x19, 0x19, 0x94, 0x49, 0xac, 0x01, 0xfa, 0x7b,
+	0x4d, 0x7c, 0x47, 0x08, 0x90, 0x67, 0x94, 0x24, 0x3d, 0x86, 0x6b, 0x37, 0x1f, 0xde, 0xc0, 0x25,
+	0x8c, 0xf8, 0x03, 0x66, 0xc4, 0xef, 0xe2, 0xe5, 0xc0, 0x08, 0xcf, 0x1c, 0x12, 0xcf, 0x16, 0x56,
+	0x7c, 0x71, 0x17, 0xdf, 0x0a, 0x39, 0x27, 0xd4, 0x1b, 0x2c, 0x16, 0x47, 0x8f, 0x13, 0x17, 0x2b,
+	0x84, 0x46, 0x27, 0x2e, 0x56, 0x18, 0x7a, 0x4e, 0x5a, 0x2c, 0x8e, 0x15, 0x27, 0x2d, 0x96, 0xdf,
+	0xb3, 0xf5, 0xff, 0xf3, 0x50, 0xd8, 0xe1, 0x37, 0x7d, 0x91, 0x0d, 0x25, 0x1f, 0x7c, 0x45, 0x6b,
+	0x49, 0x08, 0x53, 0xf0, 0x2e, 0xd1, 0xbc, 0x9f, 0xda, 0x2f, 0x0c, 0x7a, 0x8b, 0x19, 0x74, 0x07,
+	0xaf, 0x52, 0xcd, 0xe2, 0x32, 0x71, 0x8b, 0xc3, 0x18, 0x2d, 0xa3, 0xdf, 0xa7, 0x8e, 0xf8, 0x13,
+	0xa8, 0xa8, 0xe8, 0x28, 0x7a, 0x2b, 0x11, 0xd5, 0x52, 0x01, 0xd6, 0x26, 0x9e, 0xc6, 0x22, 0x34,
+	0xbf, 0xcd, 0x34, 0xaf, 0xe1, 0xdb, 0x09, 0x9a, 0x1d, 0xc6, 0x1a, 0x52, 0xce, 0x91, 0xcd, 0x64,
+	0xe5, 0x21, 0xe0, 0x34, 0x59, 0x79, 0x18, 0x18, 0x9d, 0xaa, 0x7c, 0xcc, 0x58, 0xa9, 0x72, 0x17,
+	0x20, 0xc0, 0x30, 0x51, 0xa2, 0x2f, 0x95, 0x97, 0xa9, 0x68, 0x70, 0x88, 0xc3, 0x9f, 0x18, 0x33,
+	0xb5, 0x62, 0xdf, 0x45, 0xd4, 0x0e, 0x4c, 0xd7, 0xe3, 0x07, 0xb3, 0x1a, 0x02, 0x25, 0x51, 0xe2,
+	0x7c, 0xc2, 0xc8, 0x66, 0xf3, 0xc1, 0x54, 0x1e, 0xa1, 0xfd, 0x21, 0xd3, 0x7e, 0x1f, 0x37, 0x13,
+	0xb4, 0x8f, 0x38, 0x2f, 0xdd, 0x6c, 0x7f, 0x9d, 0x87, 0xf2, 0x0b, 0xc3, 0xb4, 0x3c, 0x62, 0x19,
+	0x56, 0x8f, 0xa0, 0x53, 0xc8, 0xb1, 0x4c, 0x1d, 0x0d, 0xc4, 0x2a, 0x60, 0x17, 0x0d, 0xc4, 0x21,
+	0x34, 0x0b, 0xaf, 0x33, 0xc5, 0x4d, 0xbc, 0x42, 0x15, 0x0f, 0x03, 0xd1, 0x2d, 0x06, 0x42, 0xd1,
+	0x49, 0x9f, 0x41, 0x5e, 0x7c, 0xc3, 0x89, 0x08, 0x0a, 0x81, 0x53, 0xcd, 0xbb, 0xc9, 0x9d, 0x49,
+	0x7b, 0x59, 0x55, 0xe3, 0x32, 0x3e, 0xaa, 0x67, 0x02, 0x10, 0xa0, 0xab, 0xd1, 0x15, 0x8d, 0x81,
+	0xb1, 0xcd, 0xf5, 0x74, 0x86, 0x24, 0x9f, 0xaa, 0x3a, 0xfb, 0x3e, 0x2f, 0xd5, 0xfb, 0x47, 0x30,
+	0xff, 0xdc, 0x70, 0x2f, 0x50, 0x24, 0xf7, 0x2a, 0x37, 0x80, 0x9a, 0xcd, 0xa4, 0x2e, 0xa1, 0xe5,
+	0x3e, 0xd3, 0x72, 0x9b, 0x87, 0x32, 0x55, 0xcb, 0x85, 0xe1, 0xd2, 0xa4, 0x86, 0xfa, 0x90, 0xe7,
+	0x17, 0x82, 0xa2, 0xfe, 0x0b, 0x5d, 0x2a, 0x8a, 0xfa, 0x2f, 0x7c, 0x87, 0xe8, 0x66, 0x2d, 0x23,
+	0x28, 0xca, 0x1b, 0x38, 0x28, 0xf2, 0x39, 0x36, 0x72, 0x5b, 0xa7, 0xb9, 0x96, 0xd6, 0x2d, 0x74,
+	0x3d, 0x60, 0xba, 0xee, 0xe1, 0x46, 0x6c, 0xad, 0x04, 0xe7, 0x13, 0xed, 0xd1, 0x87, 0x1a, 0xfa,
+	0x11, 0x40, 0x00, 0x48, 0xc7, 0x4e, 0x60, 0x14, 0xdb, 0x8e, 0x9d, 0xc0, 0x18, 0x96, 0x8d, 0x37,
+	0x99, 0xde, 0x0d, 0xfc, 0x20, 0xaa, 0xd7, 0x73, 0x0c, 0xcb, 0x3d, 0x23, 0xce, 0x07, 0x1c, 0x74,
+	0x74, 0x2f, 0xcc, 0x11, 0x3d, 0x0c, 0xff, 0xba, 0x00, 0xf3, 0xb4, 0x02, 0xa6, 0x85, 0x42, 0x00,
+	0x1c, 0x44, 0x2d, 0x89, 0x01, 0x7c, 0x51, 0x4b, 0xe2, 0x98, 0x43, 0xb8, 0x50, 0x60, 0xbf, 0x11,
+	0x21, 0x8c, 0x81, 0x3a, 0xda, 0x86, 0xb2, 0x82, 0x2c, 0xa0, 0x04, 0x61, 0x61, 0xe4, 0x30, 0x9a,
+	0x7a, 0x12, 0x60, 0x09, 0x7c, 0x87, 0xe9, 0x5b, 0xe1, 0xa9, 0x87, 0xe9, 0xeb, 0x73, 0x0e, 0xaa,
+	0xf0, 0x35, 0x54, 0x54, 0xf4, 0x01, 0x25, 0xc8, 0x8b, 0xa0, 0x92, 0xd1, 0x30, 0x9b, 0x04, 0x5e,
+	0x84, 0x0f, 0xbe, 0xff, 0x3b, 0x18, 0xc9, 0x46, 0x15, 0x0f, 0xa0, 0x20, 0xe0, 0x88, 0xa4, 0x59,
+	0x86, 0x21, 0xcc, 0xa4, 0x59, 0x46, 0xb0, 0x8c, 0x70, 0x71, 0xc9, 0x34, 0xd2, 0x37, 0x2e, 0x99,
+	0xca, 0x84, 0xb6, 0x67, 0xc4, 0x4b, 0xd3, 0x16, 0xa0, 0x6b, 0x69, 0xda, 0x94, 0xb7, 0xdd, 0x34,
+	0x6d, 0xe7, 0xc4, 0x13, 0xc7, 0x45, 0xbe, 0x45, 0xa2, 0x14, 0x61, 0x6a, 0xfa, 0xc0, 0xd3, 0x58,
+	0x92, 0x6a, 0xff, 0x40, 0xa1, 0xcc, 0x1d, 0x57, 0x00, 0x01, 0x58, 0x12, 0x2d, 0xe8, 0x12, 0x11,
+	0xd7, 0x68, 0x41, 0x97, 0x8c, 0xb7, 0x84, 0x43, 0x43, 0xa0, 0x97, 0xbf, 0x7a, 0x50, 0xcd, 0x3f,
+	0xd3, 0x00, 0xc5, 0x71, 0x15, 0xf4, 0x38, 0x59, 0x7a, 0x22, 0x8e, 0xdb, 0x7c, 0xff, 0xcd, 0x98,
+	0x93, 0xa2, 0x7d, 0x60, 0x52, 0x8f, 0x71, 0x8f, 0x5e, 0x53, 0xa3, 0xfe, 0x42, 0x83, 0x6a, 0x08,
+	0x94, 0x41, 0xef, 0xa4, 0xac, 0x69, 0x04, 0x06, 0x6e, 0xbe, 0x7b, 0x23, 0x5f, 0x52, 0xa5, 0xab,
+	0xec, 0x00, 0x59, 0xf2, 0xff, 0x44, 0x83, 0x5a, 0x18, 0xc4, 0x41, 0x29, 0xb2, 0x63, 0x30, 0x72,
+	0x73, 0xe3, 0x66, 0xc6, 0xe9, 0xcb, 0x13, 0x54, 0xfb, 0x03, 0x28, 0x08, 0xd8, 0x27, 0x69, 0xe3,
+	0x87, 0x01, 0xe8, 0xa4, 0x8d, 0x1f, 0xc1, 0x8c, 0x12, 0x36, 0xbe, 0x63, 0x0f, 0x88, 0x72, 0xcc,
+	0x04, 0x2e, 0x94, 0xa6, 0x6d, 0xfa, 0x31, 0x8b, 0x80, 0x4a, 0x69, 0xda, 0x82, 0x63, 0x26, 0x01,
+	0x21, 0x94, 0x22, 0xec, 0x86, 0x63, 0x16, 0xc5, 0x93, 0x12, 0x8e, 0x19, 0x53, 0xa8, 0x1c, 0xb3,
+	0x00, 0xba, 0x49, 0x3a, 0x66, 0x31, 0x3c, 0x3d, 0xe9, 0x98, 0xc5, 0xd1, 0x9f, 0x84, 0x75, 0x64,
+	0x7a, 0x43, 0xc7, 0x6c, 0x29, 0x01, 0xe5, 0x41, 0xef, 0xa7, 0x38, 0x31, 0x11, 0xa6, 0x6f, 0x7e,
+	0xf0, 0x86, 0xdc, 0xa9, 0x7b, 0x9c, 0xbb, 0x5f, 0xee, 0xf1, 0xbf, 0xd1, 0x60, 0x39, 0x09, 0x21,
+	0x42, 0x29, 0x7a, 0x52, 0xe0, 0xfd, 0xe6, 0xe6, 0x9b, 0xb2, 0x4f, 0xf7, 0x96, 0xbf, 0xeb, 0x9f,
+	0xd6, 0xff, 0xed, 0xab, 0x35, 0xed, 0x3f, 0xbf, 0x5a, 0xd3, 0xfe, 0xe7, 0xab, 0x35, 0xed, 0x6f,
+	0xff, 0x77, 0x6d, 0xee, 0x34, 0xcf, 0x7e, 0x5d, 0xf9, 0xed, 0x5f, 0x05, 0x00, 0x00, 0xff, 0xff,
+	0x52, 0x4e, 0xd7, 0x33, 0xe4, 0x39, 0x00, 0x00,
+}

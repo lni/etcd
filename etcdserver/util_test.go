@@ -19,11 +19,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coreos/etcd/etcdserver/membership"
-	"github.com/coreos/etcd/pkg/types"
-	"github.com/coreos/etcd/raft/raftpb"
-	"github.com/coreos/etcd/rafthttp"
-	"github.com/coreos/etcd/snap"
+	"go.uber.org/zap"
+
+	"go.etcd.io/etcd/etcdserver/api/membership"
+	"go.etcd.io/etcd/etcdserver/api/rafthttp"
+	"go.etcd.io/etcd/etcdserver/api/snap"
+	"go.etcd.io/etcd/pkg/types"
+	"go.etcd.io/etcd/raft/raftpb"
 )
 
 func TestLongestConnected(t *testing.T) {
@@ -31,7 +33,7 @@ func TestLongestConnected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	clus, err := membership.NewClusterFromURLsMap("test", umap)
+	clus, err := membership.NewClusterFromURLsMap(zap.NewExample(), "test", umap)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,3 +90,23 @@ func (s *nopTransporterWithActiveTime) Stop()                               {}
 func (s *nopTransporterWithActiveTime) Pause()                              {}
 func (s *nopTransporterWithActiveTime) Resume()                             {}
 func (s *nopTransporterWithActiveTime) reset(am map[types.ID]time.Time)     { s.activeMap = am }
+
+func TestPanicAlternativeStringer(t *testing.T) {
+	p := panicAlternativeStringer{alternative: func() string { return "alternative" }}
+
+	p.stringer = testStringerFunc(func() string { panic("here") })
+	if s := p.String(); s != "alternative" {
+		t.Fatalf("expected 'alternative', got %q", s)
+	}
+
+	p.stringer = testStringerFunc(func() string { return "test" })
+	if s := p.String(); s != "test" {
+		t.Fatalf("expected 'test', got %q", s)
+	}
+}
+
+type testStringerFunc func() string
+
+func (s testStringerFunc) String() string {
+	return s()
+}

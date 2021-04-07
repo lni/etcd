@@ -16,18 +16,23 @@ package wal
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"testing"
 
-	"github.com/coreos/etcd/pkg/fileutil"
-	"github.com/coreos/etcd/pkg/pbutil"
-	"github.com/coreos/etcd/raft/raftpb"
-	"github.com/coreos/etcd/wal/walpb"
+	"go.etcd.io/etcd/pkg/fileutil"
+	"go.etcd.io/etcd/pkg/pbutil"
+	"go.etcd.io/etcd/raft/raftpb"
+	"go.etcd.io/etcd/wal/walpb"
+
+	"go.uber.org/zap"
 )
 
 func TestNew(t *testing.T) {
@@ -37,7 +42,7 @@ func TestNew(t *testing.T) {
 	}
 	defer os.RemoveAll(p)
 
-	w, err := Create(p, []byte("somedata"))
+	w, err := Create(zap.NewExample(), p, []byte("somedata"))
 	if err != nil {
 		t.Fatalf("err = %v, want nil", err)
 	}
@@ -84,6 +89,70 @@ func TestNew(t *testing.T) {
 	}
 }
 
+func TestCreateFailFromPollutedDir(t *testing.T) {
+	p, err := ioutil.TempDir(os.TempDir(), "waltest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(p)
+	ioutil.WriteFile(filepath.Join(p, "test.wal"), []byte("data"), os.ModeTemporary)
+
+	_, err = Create(zap.NewExample(), p, []byte("data"))
+	if err != os.ErrExist {
+		t.Fatalf("expected %v, got %v", os.ErrExist, err)
+	}
+}
+
+func TestWalCleanup(t *testing.T) {
+	testRoot, err := ioutil.TempDir(os.TempDir(), "waltestroot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ioutil.TempDir(testRoot, "waltest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(testRoot)
+
+	logger := zap.NewExample()
+	w, err := Create(logger, p, []byte(""))
+	if err != nil {
+		t.Fatalf("err = %v, want nil", err)
+	}
+	w.cleanupWAL(logger)
+	fnames, err := fileutil.ReadDir(testRoot)
+	if err != nil {
+		t.Fatalf("err = %v, want nil", err)
+	}
+	if len(fnames) != 1 {
+		t.Fatalf("expected 1 file under %v, got %v", testRoot, len(fnames))
+	}
+	pattern := fmt.Sprintf(`%s.broken\.[\d]{8}\.[\d]{6}\.[\d]{1,6}?`, filepath.Base(p))
+	match, _ := regexp.MatchString(pattern, fnames[0])
+	if !match {
+		t.Errorf("match = false, expected true for %v with pattern %v", fnames[0], pattern)
+	}
+}
+
+func TestCreateFailFromNoSpaceLeft(t *testing.T) {
+	p, err := ioutil.TempDir(os.TempDir(), "waltest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(p)
+
+	oldSegmentSizeBytes := SegmentSizeBytes
+	defer func() {
+		SegmentSizeBytes = oldSegmentSizeBytes
+	}()
+	SegmentSizeBytes = math.MaxInt64
+
+	_, err = Create(zap.NewExample(), p, []byte("data"))
+	if err == nil { // no space left on device
+		t.Fatalf("expected error 'no space left on device', got nil")
+	}
+}
+
 func TestNewForInitedDir(t *testing.T) {
 	p, err := ioutil.TempDir(os.TempDir(), "waltest")
 	if err != nil {
@@ -92,7 +161,7 @@ func TestNewForInitedDir(t *testing.T) {
 	defer os.RemoveAll(p)
 
 	os.Create(filepath.Join(p, walName(0, 0)))
-	if _, err = Create(p, nil); err == nil || err != os.ErrExist {
+	if _, err = Create(zap.NewExample(), p, nil); err == nil || err != os.ErrExist {
 		t.Errorf("err = %v, want %v", err, os.ErrExist)
 	}
 }
@@ -110,7 +179,7 @@ func TestOpenAtIndex(t *testing.T) {
 	}
 	f.Close()
 
-	w, err := Open(dir, walpb.Snapshot{})
+	w, err := Open(zap.NewExample(), dir, walpb.Snapshot{})
 	if err != nil {
 		t.Fatalf("err = %v, want nil", err)
 	}
@@ -129,7 +198,7 @@ func TestOpenAtIndex(t *testing.T) {
 	}
 	f.Close()
 
-	w, err = Open(dir, walpb.Snapshot{Index: 5})
+	w, err = Open(zap.NewExample(), dir, walpb.Snapshot{Index: 5})
 	if err != nil {
 		t.Fatalf("err = %v, want nil", err)
 	}
@@ -146,7 +215,7 @@ func TestOpenAtIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(emptydir)
-	if _, err = Open(emptydir, walpb.Snapshot{}); err != ErrFileNotFound {
+	if _, err = Open(zap.NewExample(), emptydir, walpb.Snapshot{}); err != ErrFileNotFound {
 		t.Errorf("err = %v, want %v", err, ErrFileNotFound)
 	}
 }
@@ -162,7 +231,7 @@ func TestVerify(t *testing.T) {
 	defer os.RemoveAll(walDir)
 
 	// create WAL
-	w, err := Create(walDir, nil)
+	w, err := Create(zap.NewExample(), walDir, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +249,7 @@ func TestVerify(t *testing.T) {
 	}
 
 	// to verify the WAL is not corrupted at this point
-	err = Verify(walDir, walpb.Snapshot{})
+	err = Verify(zap.NewExample(), walDir, walpb.Snapshot{})
 	if err != nil {
 		t.Errorf("expected a nil error, got %v", err)
 	}
@@ -196,7 +265,7 @@ func TestVerify(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = Verify(walDir, walpb.Snapshot{})
+	err = Verify(zap.NewExample(), walDir, walpb.Snapshot{})
 	if err == nil {
 		t.Error("expected a non-nil error, got nil")
 	}
@@ -210,7 +279,7 @@ func TestCut(t *testing.T) {
 	}
 	defer os.RemoveAll(p)
 
-	w, err := Create(p, nil)
+	w, err := Create(zap.NewExample(), p, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,7 +341,7 @@ func TestSaveWithCut(t *testing.T) {
 	}
 	defer os.RemoveAll(p)
 
-	w, err := Create(p, []byte("metadata"))
+	w, err := Create(zap.NewExample(), p, []byte("metadata"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +358,7 @@ func TestSaveWithCut(t *testing.T) {
 	const EntrySize int = 500
 	SegmentSizeBytes = 2 * 1024
 	defer func() { SegmentSizeBytes = restoreLater }()
-	var index uint64 = 0
+	index := uint64(0)
 	for totalSize := 0; totalSize < int(SegmentSizeBytes); totalSize += EntrySize {
 		ents := []raftpb.Entry{{Index: index, Term: 1, Data: bigData}}
 		if err = w.Save(state, ents); err != nil {
@@ -300,7 +369,7 @@ func TestSaveWithCut(t *testing.T) {
 
 	w.Close()
 
-	neww, err := Open(p, walpb.Snapshot{})
+	neww, err := Open(zap.NewExample(), p, walpb.Snapshot{})
 	if err != nil {
 		t.Fatalf("err = %v, want nil", err)
 	}
@@ -335,7 +404,7 @@ func TestRecover(t *testing.T) {
 	}
 	defer os.RemoveAll(p)
 
-	w, err := Create(p, []byte("metadata"))
+	w, err := Create(zap.NewExample(), p, []byte("metadata"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +423,7 @@ func TestRecover(t *testing.T) {
 	}
 	w.Close()
 
-	if w, err = Open(p, walpb.Snapshot{}); err != nil {
+	if w, err = Open(zap.NewExample(), p, walpb.Snapshot{}); err != nil {
 		t.Fatal(err)
 	}
 	metadata, state, entries, err := w.ReadAll()
@@ -409,7 +478,7 @@ func TestSearchIndex(t *testing.T) {
 		},
 	}
 	for i, tt := range tests {
-		idx, ok := searchIndex(tt.names, tt.index)
+		idx, ok := searchIndex(zap.NewExample(), tt.names, tt.index)
 		if idx != tt.widx {
 			t.Errorf("#%d: idx = %d, want %d", i, idx, tt.widx)
 		}
@@ -430,7 +499,7 @@ func TestScanWalName(t *testing.T) {
 		{"0000000000000000-0000000000000000.snap", 0, 0, false},
 	}
 	for i, tt := range tests {
-		s, index, err := parseWalName(tt.str)
+		s, index, err := parseWALName(tt.str)
 		if g := err == nil; g != tt.wok {
 			t.Errorf("#%d: ok = %v, want %v", i, g, tt.wok)
 		}
@@ -450,7 +519,7 @@ func TestRecoverAfterCut(t *testing.T) {
 	}
 	defer os.RemoveAll(p)
 
-	md, err := Create(p, []byte("metadata"))
+	md, err := Create(zap.NewExample(), p, []byte("metadata"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -473,7 +542,7 @@ func TestRecoverAfterCut(t *testing.T) {
 	}
 
 	for i := 0; i < 10; i++ {
-		w, err := Open(p, walpb.Snapshot{Index: uint64(i)})
+		w, err := Open(zap.NewExample(), p, walpb.Snapshot{Index: uint64(i)})
 		if err != nil {
 			if i <= 4 {
 				if err != ErrFileNotFound {
@@ -508,7 +577,7 @@ func TestOpenAtUncommittedIndex(t *testing.T) {
 	}
 	defer os.RemoveAll(p)
 
-	w, err := Create(p, nil)
+	w, err := Create(zap.NewExample(), p, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -520,7 +589,7 @@ func TestOpenAtUncommittedIndex(t *testing.T) {
 	}
 	w.Close()
 
-	w, err = Open(p, walpb.Snapshot{})
+	w, err = Open(zap.NewExample(), p, walpb.Snapshot{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -542,7 +611,7 @@ func TestOpenForRead(t *testing.T) {
 	}
 	defer os.RemoveAll(p)
 	// create WAL
-	w, err := Create(p, nil)
+	w, err := Create(zap.NewExample(), p, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -562,7 +631,7 @@ func TestOpenForRead(t *testing.T) {
 	w.ReleaseLockTo(unlockIndex)
 
 	// All are available for read
-	w2, err := OpenForRead(p, walpb.Snapshot{})
+	w2, err := OpenForRead(zap.NewExample(), p, walpb.Snapshot{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -573,6 +642,35 @@ func TestOpenForRead(t *testing.T) {
 	}
 	if g := ents[len(ents)-1].Index; g != 9 {
 		t.Errorf("last index read = %d, want %d", g, 9)
+	}
+}
+
+func TestOpenWithMaxIndex(t *testing.T) {
+	p, err := ioutil.TempDir(os.TempDir(), "waltest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(p)
+	// create WAL
+	w, err := Create(zap.NewExample(), p, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+
+	es := []raftpb.Entry{{Index: uint64(math.MaxInt64)}}
+	if err = w.Save(raftpb.HardState{}, es); err != nil {
+		t.Fatal(err)
+	}
+	w.Close()
+
+	w, err = Open(zap.NewExample(), p, walpb.Snapshot{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, _, err = w.ReadAll()
+	if err == nil || err != ErrSliceOutOfRange {
+		t.Fatalf("err = %v, want ErrSliceOutOfRange", err)
 	}
 }
 
@@ -597,7 +695,7 @@ func TestReleaseLockTo(t *testing.T) {
 	}
 	defer os.RemoveAll(p)
 	// create WAL
-	w, err := Create(p, nil)
+	w, err := Create(zap.NewExample(), p, nil)
 	defer func() {
 		if err = w.Close(); err != nil {
 			t.Fatal(err)
@@ -633,7 +731,7 @@ func TestReleaseLockTo(t *testing.T) {
 	}
 	for i, l := range w.locks {
 		var lockIndex uint64
-		_, lockIndex, err = parseWalName(filepath.Base(l.Name()))
+		_, lockIndex, err = parseWALName(filepath.Base(l.Name()))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -651,7 +749,7 @@ func TestReleaseLockTo(t *testing.T) {
 	if len(w.locks) != 1 {
 		t.Errorf("len(w.locks) = %d, want %d", len(w.locks), 1)
 	}
-	_, lockIndex, err := parseWalName(filepath.Base(w.locks[0].Name()))
+	_, lockIndex, err := parseWALName(filepath.Base(w.locks[0].Name()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -670,7 +768,7 @@ func TestTailWriteNoSlackSpace(t *testing.T) {
 	defer os.RemoveAll(p)
 
 	// create initial WAL
-	w, err := Create(p, []byte("metadata"))
+	w, err := Create(zap.NewExample(), p, []byte("metadata"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -692,7 +790,7 @@ func TestTailWriteNoSlackSpace(t *testing.T) {
 	w.Close()
 
 	// open, write more
-	w, err = Open(p, walpb.Snapshot{})
+	w, err = Open(zap.NewExample(), p, walpb.Snapshot{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -713,7 +811,7 @@ func TestTailWriteNoSlackSpace(t *testing.T) {
 	w.Close()
 
 	// confirm all writes
-	w, err = Open(p, walpb.Snapshot{})
+	w, err = Open(zap.NewExample(), p, walpb.Snapshot{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -744,7 +842,7 @@ func TestRestartCreateWal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	w, werr := Create(p, []byte("abc"))
+	w, werr := Create(zap.NewExample(), p, []byte("abc"))
 	if werr != nil {
 		t.Fatal(werr)
 	}
@@ -753,7 +851,7 @@ func TestRestartCreateWal(t *testing.T) {
 		t.Fatalf("got %q exists, expected it to not exist", tmpdir)
 	}
 
-	if w, err = OpenForRead(p, walpb.Snapshot{}); err != nil {
+	if w, err = OpenForRead(zap.NewExample(), p, walpb.Snapshot{}); err != nil {
 		t.Fatal(err)
 	}
 	defer w.Close()
@@ -774,7 +872,7 @@ func TestOpenOnTornWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(p)
-	w, err := Create(p, nil)
+	w, err := Create(zap.NewExample(), p, nil)
 	defer func() {
 		if err = w.Close(); err != nil && err != os.ErrInvalid {
 			t.Fatal(err)
@@ -816,7 +914,7 @@ func TestOpenOnTornWrite(t *testing.T) {
 	}
 	f.Close()
 
-	w, err = Open(p, walpb.Snapshot{})
+	w, err = Open(zap.NewExample(), p, walpb.Snapshot{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -837,7 +935,7 @@ func TestOpenOnTornWrite(t *testing.T) {
 	w.Close()
 
 	// read back the entries, confirm number of entries matches expectation
-	w, err = OpenForRead(p, walpb.Snapshot{})
+	w, err = OpenForRead(zap.NewExample(), p, walpb.Snapshot{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -850,5 +948,164 @@ func TestOpenOnTornWrite(t *testing.T) {
 	wEntries := (clobberIdx - 1) + overwriteEntries
 	if len(ents) != wEntries {
 		t.Fatalf("expected len(ents) = %d, got %d", wEntries, len(ents))
+	}
+}
+
+func TestRenameFail(t *testing.T) {
+	p, err := ioutil.TempDir(os.TempDir(), "waltest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(p)
+
+	oldSegmentSizeBytes := SegmentSizeBytes
+	defer func() {
+		SegmentSizeBytes = oldSegmentSizeBytes
+	}()
+	SegmentSizeBytes = math.MaxInt64
+
+	tp, terr := ioutil.TempDir(os.TempDir(), "waltest")
+	if terr != nil {
+		t.Fatal(terr)
+	}
+	os.RemoveAll(tp)
+
+	w := &WAL{
+		lg:  zap.NewExample(),
+		dir: p,
+	}
+	w2, werr := w.renameWAL(tp)
+	if w2 != nil || werr == nil { // os.Rename should fail from 'no such file or directory'
+		t.Fatalf("expected error, got %v", werr)
+	}
+}
+
+// TestValidSnapshotEntries ensures ValidSnapshotEntries returns all valid wal snapshot entries, accounting
+// for hardstate
+func TestValidSnapshotEntries(t *testing.T) {
+	p, err := ioutil.TempDir(os.TempDir(), "waltest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(p)
+	snap0 := walpb.Snapshot{Index: 0, Term: 0}
+	snap1 := walpb.Snapshot{Index: 1, Term: 1}
+	state1 := raftpb.HardState{Commit: 1, Term: 1}
+	snap2 := walpb.Snapshot{Index: 2, Term: 1}
+	snap3 := walpb.Snapshot{Index: 3, Term: 2}
+	state2 := raftpb.HardState{Commit: 3, Term: 2}
+	snap4 := walpb.Snapshot{Index: 4, Term: 2} // will be orphaned since the last committed entry will be snap3
+	func() {
+		var w *WAL
+		w, err = Create(zap.NewExample(), p, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer w.Close()
+
+		// snap0 is implicitly created at index 0, term 0
+		if err = w.SaveSnapshot(snap1); err != nil {
+			t.Fatal(err)
+		}
+		if err = w.Save(state1, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err = w.SaveSnapshot(snap2); err != nil {
+			t.Fatal(err)
+		}
+		if err = w.SaveSnapshot(snap3); err != nil {
+			t.Fatal(err)
+		}
+		if err = w.Save(state2, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err = w.SaveSnapshot(snap4); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	walSnaps, serr := ValidSnapshotEntries(zap.NewExample(), p)
+	if serr != nil {
+		t.Fatal(serr)
+	}
+	expected := []walpb.Snapshot{snap0, snap1, snap2, snap3}
+	if !reflect.DeepEqual(walSnaps, expected) {
+		t.Errorf("expected walSnaps %+v, got %+v", expected, walSnaps)
+	}
+}
+
+// TestValidSnapshotEntriesAfterPurgeWal ensure that there are many wal files, and after cleaning the first wal file,
+// it can work well.
+func TestValidSnapshotEntriesAfterPurgeWal(t *testing.T) {
+	oldSegmentSizeBytes := SegmentSizeBytes
+	SegmentSizeBytes = 64
+	defer func() {
+		SegmentSizeBytes = oldSegmentSizeBytes
+	}()
+	p, err := ioutil.TempDir(os.TempDir(), "waltest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(p)
+	snap0 := walpb.Snapshot{Index: 0, Term: 0}
+	snap1 := walpb.Snapshot{Index: 1, Term: 1}
+	state1 := raftpb.HardState{Commit: 1, Term: 1}
+	snap2 := walpb.Snapshot{Index: 2, Term: 1}
+	snap3 := walpb.Snapshot{Index: 3, Term: 2}
+	state2 := raftpb.HardState{Commit: 3, Term: 2}
+	func() {
+		w, werr := Create(zap.NewExample(), p, nil)
+		if werr != nil {
+			t.Fatal(werr)
+		}
+		defer w.Close()
+
+		// snap0 is implicitly created at index 0, term 0
+		if err = w.SaveSnapshot(snap1); err != nil {
+			t.Fatal(err)
+		}
+		if err = w.Save(state1, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err = w.SaveSnapshot(snap2); err != nil {
+			t.Fatal(err)
+		}
+		if err = w.SaveSnapshot(snap3); err != nil {
+			t.Fatal(err)
+		}
+		for i := 0; i < 128; i++ {
+			if err = w.Save(state2, nil); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}()
+	files, _, ferr := selectWALFiles(nil, p, snap0)
+	if ferr != nil {
+		t.Fatal(ferr)
+	}
+	os.Remove(p + "/" + files[0])
+	_, err = ValidSnapshotEntries(zap.NewExample(), p)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestReadAllFail ensure ReadAll error if used without opening the WAL
+func TestReadAllFail(t *testing.T) {
+	dir, err := ioutil.TempDir(os.TempDir(), "waltest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	// create initial WAL
+	f, err := Create(zap.NewExample(), dir, []byte("metadata"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	// try to read without opening the WAL
+	_, _, _, err = f.ReadAll()
+	if err == nil || err != ErrDecoderNotFound {
+		t.Fatalf("err = %v, want ErrDecoderNotFound", err)
 	}
 }
