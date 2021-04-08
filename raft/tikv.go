@@ -5,6 +5,16 @@ import (
 	"go.etcd.io/etcd/raft/raftpb"
 )
 
+func (rn *RawNode) Ping() {
+	if rn.Status().RaftState == StateLeader {
+		rn.raft.bcastHeartbeat()
+	}
+}
+
+func (rn *RawNode) BecomeFollower(term uint64, leader uint64) {
+	rn.raft.becomeFollower(term, leader)
+}
+
 func (rn *RawNode) NewChanger() confchange.Changer {
 	return confchange.Changer{Tracker: rn.raft.prs.Clone(), LastIndex: rn.raft.raftLog.lastIndex()}
 }
