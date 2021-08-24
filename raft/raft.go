@@ -761,12 +761,12 @@ func (r *raft) hup(t CampaignType) {
 		r.logger.Warningf("%x is unpromotable and can not campaign", r.id)
 		return
 	}
-	ents, err := r.raftLog.slice(r.raftLog.applied+1, r.raftLog.committed+1, noLimit)
-	if err != nil {
-		r.logger.Panicf("unexpected error getting unapplied entries (%v)", err)
-	}
-	if n := numOfPendingConf(ents); n != 0 && r.raftLog.committed > r.raftLog.applied {
-		r.logger.Warningf("%x cannot campaign at term %d since there are still %d pending configuration changes to apply", r.id, r.Term, n)
+	// this won't cause extra unavailable period for clients as proposals and read
+	// index requests made by clients won't be able to complete until
+	// r.raftLog.committed == r.raftLog.applied anyway.
+	if r.raftLog.committed > r.raftLog.applied {
+		r.logger.Warningf("%x cannot campaign at term %d since there are still %d pending entries to apply",
+			r.id, r.Term, r.raftLog.committed-r.raftLog.applied)
 		return
 	}
 
