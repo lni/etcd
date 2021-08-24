@@ -1621,11 +1621,14 @@ func (r *raft) applyConfChange(cc pb.ConfChangeV2) pb.ConfState {
 			LastIndex: r.raftLog.lastIndex(),
 		}
 		if cc.LeaveJoint() {
-			return changer.LeaveJoint()
+			c, t, _, err := changer.LeaveJoint()
+			return c, t, err
 		} else if autoLeave, ok := cc.EnterJoint(); ok {
-			return changer.EnterJoint(autoLeave, cc.Changes...)
+			c, t, _, err := changer.EnterJoint(autoLeave, cc.Changes...)
+			return c, t, err
 		}
-		return changer.Simple(cc.Changes...)
+		c, t, _, err := changer.Simple(cc.Changes...)
+		return c, t, err
 	}()
 
 	if err != nil {
